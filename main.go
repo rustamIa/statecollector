@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,8 +13,14 @@ import (
 
 	"golang.org/x/sync/errgroup" //менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
 
+	//--"main/billingstat"
 	"main/config"
+	"main/emaildata"
+	"main/incidentdata"
+	mms "main/mmsdata"
 	sms "main/smsdata"
+	"main/support"
+	"main/voicedata"
 )
 
 // LogCfg описывает параметры логирования, которые удобнее всего задавать флагами/ENV.
@@ -103,16 +110,16 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	parentCtx := ctx // родительский ctx живёт до SIGINT/SIGTERM
 
 	// 1) один http.Client на весь процесс (reuse пула соединений)
-	//client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Second}
 
 	// 2) конструируем сервисы с контекстным Fetch
-	//svcMms := mms.NewService(logger, cfg, client)
-	//svcSupp := support.NewService(logger, cfg, client)
-	//svcInc := incident.NewService(logger, cfg, client)
+	svcMms := mms.NewService(logger, cfg, client)
+	svcSupp := support.NewService(logger, cfg, client)
+	svcInc := incidentdata.NewService(logger, cfg, client)
 
 	// 3) errgroup с лимитом параллелизма
 	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(4) // лимит активных горутин
+	g.SetLimit(7) // лимит активных горутин
 
 	perReqTimeout := 3 * time.Second
 
@@ -121,103 +128,28 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 		// TODO: лучше, чтобы sms.Fetch тоже принимал ctx
 		return sms.Fetch(logger, cfg)
 	})
+
+	goFetchSlice(g, ctx, logger, "voice", perReqTimeout, func(ctx context.Context) ([]voicedata.VoiceCallData, error) {
+		return voicedata.Fetch(logger, cfg)
+	})
+	goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
+		return emaildata.Fetch(logger, cfg)
+	})
+	//	goFetchValue(g, ctx, logger, "billing", perReqTimeout, func(ctx context.Context) (any, error) {
+	//		return billingstat.Fetch(logger, cfg) // вернёт структуру/сводку
+	//	})
+	goFetchSlice(g, ctx, logger, "mms", perReqTimeout, func(ctx context.Context) ([]mms.MMSData, error) {
+		return svcMms.Fetch(ctx)
+	})
+	goFetchSlice(g, ctx, logger, "support", perReqTimeout, func(ctx context.Context) ([]support.SupportData, error) {
+		return svcSupp.Fetch(ctx)
+	})
+	goFetchSlice(g, ctx, logger, "incident", perReqTimeout, func(ctx context.Context) ([]incidentdata.IncidentData, error) {
+		return svcInc.Fetch(ctx)
+	})
+
 	// 5) ждём завершения всех «первичных» фетчей
 	_ = g.Wait()
-
-	/*
-		smsData, err := sms.Fetch(logger, cfg)
-		if err != nil {
-			//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
-			logger.Info("sms data NOT fetched")
-		} else {
-			logger.Info("sms data fetched",
-				slog.Int("count", len(smsData)),
-			)
-			logger.Debug("sms data:",
-				" ", smsData,
-			)
-		}
-
-		VoiceData, err := voicedata.Fetch(logger, cfg)
-		if err != nil {
-			//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
-			logger.Info("vioce data NOT fetched")
-		} else {
-			logger.Info("vioce data fetched",
-				slog.Int("count", len(VoiceData)),
-			)
-			logger.Debug("Voice data:",
-				" ", VoiceData,
-			)
-		}
-
-		EmailData, err := emaildata.Fetch(logger, cfg)
-		if err != nil {
-			//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
-			logger.Info("email data NOT fetched")
-		} else {
-			logger.Info("email data fetched",
-				slog.Int("count", len(EmailData)),
-			)
-			logger.Debug("Email data:",
-				" ", EmailData,
-			)
-		}
-
-		BillingState, err := billingstat.Fetch(logger, cfg)
-		if err != nil {
-			logger.Info("billing state NOT fetched")
-		} else {
-			logger.Info("billing state fetched")
-			logger.Debug("billing state data:",
-				" ", BillingState,
-			)
-		}
-
-		// HTTP клиент
-		client := &http.Client{
-			Timeout: 5 * time.Second,
-		}
-
-		svcMms := mms.NewService(logger, cfg, client)
-
-		if got, err := svcMms.Fetch(ctx); err != nil {
-			logger.Info("mms data NOT fetched")
-		} else {
-			logger.Info("mms data fetched",
-				slog.Int("count", len(got)),
-			)
-			logger.Debug("mms data:",
-				" ", got,
-			)
-		}
-
-		svcSupp := support.NewService(logger, cfg, client)
-		// Вызов Fetch
-		if got, err := svcSupp.Fetch(ctx); err != nil {
-			logger.Info("failed to fetch Support data")
-		} else {
-			logger.Info("Support data fetched",
-				slog.Int("count", len(got)),
-			)
-			logger.Debug("Support data:",
-				" ", got,
-			)
-		}
-
-		svcIncidents := incident.NewService(logger, cfg, client)
-		// Вызов Fetch
-		if got, err := svcIncidents.Fetch(ctx); err != nil {
-			logger.Info("failed to fetch incident data")
-		} else {
-			logger.Info("incident data fetched",
-				slog.Int("count", len(got)),
-			)
-			logger.Debug("incident data:",
-				" ", got,
-			)
-		}
-	*/
 
 	// 6) heartbeat + graceful shutdown
 	ticker := time.NewTicker(10 * time.Second)
