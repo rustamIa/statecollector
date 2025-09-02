@@ -2,7 +2,10 @@ module main
 
 go 1.23.5
 
-require github.com/go-playground/validator/v10 v10.18.0
+require (
+	github.com/go-playground/validator/v10 v10.18.0
+	golang.org/x/sync v0.16.0
+)
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect

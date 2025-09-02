@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,29 +10,20 @@ import (
 	"log/slog"
 	"time"
 
-	//----sms "main/smsdata"
+	"golang.org/x/sync/errgroup" //менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
 
-	"main/billingstat"
 	"main/config"
-	"main/emaildata"
-	incident "main/incedentdata"
-	mms "main/mmsdata"
 	sms "main/smsdata"
-	support "main/support"
-	"main/voicedata"
 )
 
-//TODO тянуть конфигурацию для sms.Get и mms.Get из файла config
-
-// LogCfg описывает параметры логирования,
-// которые удобнее всего задавать флагами/ENV.
+// LogCfg описывает параметры логирования, которые удобнее всего задавать флагами/ENV.
 type LogCfg struct {
 	Format string // text | json
 	Level  string // debug | info | warn | error
 }
 
 // readLogCfg парсит флаги командной строки и возвращает конфиг логгера.
-// запукать в терминале bash, но не power shell
+// запукать в терминале bash
 //
 //	$ go run . -log.format=json -log.level=debug
 func readLogCfg() LogCfg {
@@ -44,45 +34,7 @@ func readLogCfg() LogCfg {
 	return cfg
 }
 
-// логирование
-// setupLogger creates a new slog.Logger instance with a text output
-// handler writing to os.Stdout at the debug level
-/*func setupLogger() *slog.Logger {
-	var log *slog.Logger
-	log = slog.New(
-		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
-	)
-	return log
-}
-*/
-// setupLogger строит slog.Logger согласно конфигурации.
-func setupLogger(cfg LogCfg) *slog.Logger {
-	var lvl slog.Level
-	if err := lvl.UnmarshalText([]byte(cfg.Level)); err != nil { // преобразование текстового флага (например, -log.level=debug) в специальный тип slog.Level
-		lvl = slog.LevelInfo // slog.LevelInfo при ошибке
-
-		// Уведомляем пользователя о проблеме флагов
-		slog.Warn("Invalid log level provided, falling back to 'info'",
-			slog.String("provided_level", cfg.Level),
-		)
-	}
-
-	opts := &slog.HandlerOptions{
-		Level:     lvl,
-		AddSource: true, // покажет файл:строку
-	}
-
-	var h slog.Handler
-	switch cfg.Format {
-	case "json":
-		h = slog.NewJSONHandler(os.Stdout, opts)
-	default:
-		h = slog.NewTextHandler(os.Stdout, opts)
-	}
-
-	return slog.New(h)
-}
-
+// -----------------------------------------
 func init() {
 
 }
@@ -121,109 +73,160 @@ func main() {
 	logger.Info("state_Collector stopped")
 }
 
+// -----------------------------------------
+// тип функции, возвращающей слайс данных
+type sliceFetchFn[T any] func(ctx context.Context) ([]T, error) //это компактный способ описать «контракт» для функций вида “дай мне слайс T по контексту, либо ошибку”, который можно переиспользовать для разных доменных типов.
+
+// общий шаблон: запускает задачу в errgroup, логирует результат и НЕ отменяет соседей при ошибке
+func goFetchSlice[T any](g *errgroup.Group, parentCtx context.Context, logger *slog.Logger, name string, timeOut time.Duration, fn sliceFetchFn[T]) {
+	g.Go(func() error {
+		ctx, cancel := context.WithTimeout(parentCtx, timeOut)
+		defer cancel()
+
+		start := time.Now()
+		data, err := fn(ctx)
+		if err != nil {
+			logger.Info(name+" NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+			return nil // важный момент: не «роняем» группу, остальные задачи продолжат работу
+		}
+		logger.Info(name+" fetched",
+			slog.Int("count", len(data)),
+			slog.Duration("dur", time.Since(start)),
+		)
+		logger.Debug(name+" data:", " ", data)
+		return nil
+	})
+}
+
 // run — «бизнес-логика», умеет останавливаться по ctx.Done().
 func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
+	parentCtx := ctx // родительский ctx живёт до SIGINT/SIGTERM
 
-	smsData, err := sms.Fetch(logger, cfg)
-	if err != nil {
-		//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
-		logger.Info("sms data NOT fetched")
-	} else {
-		logger.Info("sms data fetched",
-			slog.Int("count", len(smsData)),
-		)
-		logger.Debug("sms data:",
-			" ", smsData,
-		)
-	}
+	// 1) один http.Client на весь процесс (reuse пула соединений)
+	//client := &http.Client{Timeout: 5 * time.Second}
 
-	VoiceData, err := voicedata.Fetch(logger, cfg)
-	if err != nil {
-		//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
-		logger.Info("vioce data NOT fetched")
-	} else {
-		logger.Info("vioce data fetched",
-			slog.Int("count", len(VoiceData)),
-		)
-		logger.Debug("Voice data:",
-			" ", VoiceData,
-		)
-	}
+	// 2) конструируем сервисы с контекстным Fetch
+	//svcMms := mms.NewService(logger, cfg, client)
+	//svcSupp := support.NewService(logger, cfg, client)
+	//svcInc := incident.NewService(logger, cfg, client)
 
-	EmailData, err := emaildata.Fetch(logger, cfg)
-	if err != nil {
-		//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
-		logger.Info("email data NOT fetched")
-	} else {
-		logger.Info("email data fetched",
-			slog.Int("count", len(EmailData)),
-		)
-		logger.Debug("Email data:",
-			" ", EmailData,
-		)
-	}
+	// 3) errgroup с лимитом параллелизма
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(4) // лимит активных горутин
 
-	BillingState, err := billingstat.Fetch(logger, cfg)
-	if err != nil {
-		logger.Info("billing state NOT fetched")
-	} else {
-		logger.Info("billing state fetched")
-		logger.Debug("billing state data:",
-			" ", BillingState,
-		)
-	}
+	perReqTimeout := 3 * time.Second
 
-	// HTTP клиент
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
+	// 4) параллельные задачи (каждая – короткая обёртка)
+	goFetchSlice(g, ctx, logger, "sms", perReqTimeout, func(ctx context.Context) ([]sms.SMSData, error) {
+		// TODO: лучше, чтобы sms.Fetch тоже принимал ctx
+		return sms.Fetch(logger, cfg)
+	})
+	// 5) ждём завершения всех «первичных» фетчей
+	_ = g.Wait()
 
-	svcMms := mms.NewService(logger, cfg, client)
+	/*
+		smsData, err := sms.Fetch(logger, cfg)
+		if err != nil {
+			//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
+			logger.Info("sms data NOT fetched")
+		} else {
+			logger.Info("sms data fetched",
+				slog.Int("count", len(smsData)),
+			)
+			logger.Debug("sms data:",
+				" ", smsData,
+			)
+		}
 
-	if got, err := svcMms.Fetch(ctx); err != nil {
-		logger.Info("mms data NOT fetched")
-	} else {
-		logger.Info("mms data fetched",
-			slog.Int("count", len(got)),
-		)
-		logger.Debug("mms data:",
-			" ", got,
-		)
-	}
+		VoiceData, err := voicedata.Fetch(logger, cfg)
+		if err != nil {
+			//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
+			logger.Info("vioce data NOT fetched")
+		} else {
+			logger.Info("vioce data fetched",
+				slog.Int("count", len(VoiceData)),
+			)
+			logger.Debug("Voice data:",
+				" ", VoiceData,
+			)
+		}
 
-	svcSupp := support.NewService(logger, cfg, client)
-	// Вызов Fetch
-	if got, err := svcSupp.Fetch(ctx); err != nil {
-		logger.Info("failed to fetch Support data")
-	} else {
-		logger.Info("Support data fetched",
-			slog.Int("count", len(got)),
-		)
-		logger.Debug("Support data:",
-			" ", got,
-		)
-	}
+		EmailData, err := emaildata.Fetch(logger, cfg)
+		if err != nil {
+			//fmt.Errorf("sms: %w", err) - этот msg уже выдал sms.get
+			logger.Info("email data NOT fetched")
+		} else {
+			logger.Info("email data fetched",
+				slog.Int("count", len(EmailData)),
+			)
+			logger.Debug("Email data:",
+				" ", EmailData,
+			)
+		}
 
-	svcIncidents := incident.NewService(logger, cfg, client)
-	// Вызов Fetch
-	if got, err := svcIncidents.Fetch(ctx); err != nil {
-		logger.Info("failed to fetch incident data")
-	} else {
-		logger.Info("incident data fetched",
-			slog.Int("count", len(got)),
-		)
-		logger.Debug("incident data:",
-			" ", got,
-		)
-	}
+		BillingState, err := billingstat.Fetch(logger, cfg)
+		if err != nil {
+			logger.Info("billing state NOT fetched")
+		} else {
+			logger.Info("billing state fetched")
+			logger.Debug("billing state data:",
+				" ", BillingState,
+			)
+		}
 
+		// HTTP клиент
+		client := &http.Client{
+			Timeout: 5 * time.Second,
+		}
+
+		svcMms := mms.NewService(logger, cfg, client)
+
+		if got, err := svcMms.Fetch(ctx); err != nil {
+			logger.Info("mms data NOT fetched")
+		} else {
+			logger.Info("mms data fetched",
+				slog.Int("count", len(got)),
+			)
+			logger.Debug("mms data:",
+				" ", got,
+			)
+		}
+
+		svcSupp := support.NewService(logger, cfg, client)
+		// Вызов Fetch
+		if got, err := svcSupp.Fetch(ctx); err != nil {
+			logger.Info("failed to fetch Support data")
+		} else {
+			logger.Info("Support data fetched",
+				slog.Int("count", len(got)),
+			)
+			logger.Debug("Support data:",
+				" ", got,
+			)
+		}
+
+		svcIncidents := incident.NewService(logger, cfg, client)
+		// Вызов Fetch
+		if got, err := svcIncidents.Fetch(ctx); err != nil {
+			logger.Info("failed to fetch incident data")
+		} else {
+			logger.Info("incident data fetched",
+				slog.Int("count", len(got)),
+			)
+			logger.Debug("incident data:",
+				" ", got,
+			)
+		}
+	*/
+
+	// 6) heartbeat + graceful shutdown
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	// Эмуляция длительной работы с периодической проверкой контекста.
 	for {
 		select {
-		case <-ctx.Done():
+		case <-parentCtx.Done():
 			logger.Debug("state_Collector.run(): ctx cancelled — graceful exit")
 			return nil
 		case t := <-ticker.C:
@@ -231,4 +234,32 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 		}
 	}
 
+}
+
+// логирование - setupLogger строит slog.Logger согласно конфигурации.
+func setupLogger(cfg LogCfg) *slog.Logger {
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(cfg.Level)); err != nil { // преобразование текстового флага (например, -log.level=debug) в специальный тип slog.Level
+		lvl = slog.LevelInfo // slog.LevelInfo при ошибке
+
+		// Уведомляем пользователя о проблеме флагов
+		slog.Warn("Invalid log level provided, falling back to 'info'",
+			slog.String("provided_level", cfg.Level),
+		)
+	}
+
+	opts := &slog.HandlerOptions{
+		Level:     lvl,
+		AddSource: true, // покажет файл:строку
+	}
+
+	var h slog.Handler
+	switch cfg.Format {
+	case "json":
+		h = slog.NewJSONHandler(os.Stdout, opts)
+	default:
+		h = slog.NewTextHandler(os.Stdout, opts)
+	}
+
+	return slog.New(h)
 }
