@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,7 +14,7 @@ import (
 
 	"golang.org/x/sync/errgroup" //менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
 
-	//--"main/billingstat"
+	"main/billingstat"
 	"main/config"
 	"main/emaildata"
 	"main/incidentdata"
@@ -32,7 +33,7 @@ type LogCfg struct {
 // readLogCfg парсит флаги командной строки и возвращает конфиг логгера.
 // запукать в терминале bash
 //
-//	$ go run . -log.format=json -log.level=debug
+//	$ go run . -log.format=json -log.level=debug    go run . -log.format=text -log.level=debug
 func readLogCfg() LogCfg {
 	var cfg LogCfg
 	flag.StringVar(&cfg.Format, "log.format", "text", "log output format: text|json")
@@ -72,12 +73,37 @@ func main() {
 	//logger.Debug("logging started")
 	logger.Info("state_Collector starting", slog.String("Version", "1.06"))
 
+	//TODO: добавьте ему обработку адреса “/” на функцию handleConnection
+	/*router := mux.NewRouter()
+
+	// router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// 	// an example API handler
+	// 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	// })
+	router.HandleFunc("/", handleConnection)
+
+	srv := &http.Server{
+		Handler: router,
+		Addr:    "127.0.0.1:8282",
+		// Good practice: enforce timeouts for servers you create!
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+	res.PrepaireResStub()
+	log.Fatal(srv.ListenAndServe())*/
+
 	// Главная работа сервиса.
 	if err := run(ctx, logger, cfgApp); err != nil {
 		logger.Error("collector failed", slog.Any("err", err))
 	}
 
 	logger.Info("state_Collector stopped")
+}
+
+func handleConnection(w http.ResponseWriter, r *http.Request) {
+	//vars := mux.Vars(r)
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "ok")
 }
 
 // -----------------------------------------
@@ -101,6 +127,24 @@ func goFetchSlice[T any](g *errgroup.Group, parentCtx context.Context, logger *s
 			slog.Duration("dur", time.Since(start)),
 		)
 		logger.Debug(name+" data:", " ", data)
+		return nil
+	})
+}
+
+// аналог для «неслайсовых» результатов (например, сводка/структура)
+func goFetchValue(g *errgroup.Group, parentCtx context.Context, logger *slog.Logger, name string, timeOut time.Duration, fn func(ctx context.Context) (any, error)) {
+	g.Go(func() error {
+		ctx, cancel := context.WithTimeout(parentCtx, timeOut)
+		defer cancel()
+
+		start := time.Now()
+		val, err := fn(ctx)
+		if err != nil {
+			logger.Info(name+" NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+			return nil
+		}
+		logger.Info(name+" fetched", slog.Duration("dur", time.Since(start)))
+		logger.Debug(name+" data:", " ", val)
 		return nil
 	})
 }
@@ -135,9 +179,9 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
 		return emaildata.Fetch(logger, cfg)
 	})
-	//	goFetchValue(g, ctx, logger, "billing", perReqTimeout, func(ctx context.Context) (any, error) {
-	//		return billingstat.Fetch(logger, cfg) // вернёт структуру/сводку
-	//	})
+	goFetchValue(g, ctx, logger, "billing", perReqTimeout, func(ctx context.Context) (any, error) {
+		return billingstat.Fetch(logger, cfg) // вернёт структуру/сводку
+	})
 	goFetchSlice(g, ctx, logger, "mms", perReqTimeout, func(ctx context.Context) ([]mms.MMSData, error) {
 		return svcMms.Fetch(ctx)
 	})
