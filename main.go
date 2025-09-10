@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 	"main/config"
 	"main/emaildata"
 	"main/incidentdata"
+	"main/internal/types"
 	mms "main/mmsdata"
 	sms "main/smsdata"
 	"main/support"
@@ -149,8 +151,56 @@ func goFetchValue(g *errgroup.Group, parentCtx context.Context, logger *slog.Log
 	})
 }
 
+// для примера сделан отдельный goFetchSMS - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
+// в main.go
+func goFetchSMS(
+	g *errgroup.Group,
+	parentCtx context.Context,
+	logger *slog.Logger,
+	timeout time.Duration,
+	cfg *config.CfgApp,
+	rs *types.ResultSetT,
+	mu *sync.Mutex,
+) {
+	g.Go(func() error {
+		//ctx, cancel := context.WithTimeout(parentCtx, timeout)
+		//defer cancel()
+
+		start := time.Now()
+		nonSortedData, err := sms.Fetch(logger, cfg) // []sms.SMSData
+		if err != nil {
+			logger.Info("sms NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+			return nil // не валим группу
+		}
+
+		sortedData := sms.BuildSortedSMS(nonSortedData) // [][]sms.SMSData
+
+		// сохранить результат с защитой от гонок
+		mu.Lock()
+		rs.SMS = sortedData
+		mu.Unlock()
+
+		// посчитать реальное количество строк во всех под-срезах
+		total := 0
+		for _, part := range sortedData {
+			total += len(part)
+		}
+
+		logger.Info("sms fetched",
+			slog.Int("count", total),
+			slog.Duration("dur", time.Since(start)),
+		)
+		logger.Debug("sms data:", " ", sortedData)
+		return nil
+	})
+}
+
 // run — «бизнес-логика», умеет останавливаться по ctx.Done().
 func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
+	var (
+		rs types.ResultSetT
+		mu sync.Mutex
+	)
 	parentCtx := ctx // родительский ctx живёт до SIGINT/SIGTERM
 
 	// 1) один http.Client на весь процесс (reuse пула соединений)
@@ -163,15 +213,17 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 
 	// 3) errgroup с лимитом параллелизма
 	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(7) // лимит активных горутин
+	g.SetLimit(7) // лимит активных горутин -- TODO: или использовать pool?
 
 	perReqTimeout := 3 * time.Second
 
 	// 4) параллельные задачи (каждая – короткая обёртка)
-	goFetchSlice(g, ctx, logger, "sms", perReqTimeout, func(ctx context.Context) ([]sms.SMSData, error) {
-		// TODO: лучше, чтобы sms.Fetch тоже принимал ctx
-		return sms.Fetch(logger, cfg)
-	})
+	goFetchSMS(g, ctx, logger, perReqTimeout, cfg, &rs, &mu) //с одной стороны вызов проще, но аргументов уже много - и не особо наглядно
+
+	// goFetchSlice(g, ctx, logger, "sms", perReqTimeout, func(ctx context.Context) ([]sms.SMSData, error) {
+	// 	// TODO: лучше, чтобы sms.Fetch тоже принимал ctx
+	// 	return sms.Fetch(logger, cfg)
+	// })
 
 	goFetchSlice(g, ctx, logger, "voice", perReqTimeout, func(ctx context.Context) ([]voicedata.VoiceCallData, error) {
 		return voicedata.Fetch(logger, cfg)
