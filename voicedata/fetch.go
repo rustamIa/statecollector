@@ -1,32 +1,16 @@
 package voicedata
 
 import (
+	"context"
 	"log/slog"
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
 	"main/internal/textutil"
-	"main/internal/validateStruct"
 	"main/sl"
 	"strconv"
 	"strings"
 )
-
-// структура для SMSData
-type VoiceCallData struct {
-	Country             string  `validate:"iso3166_1_alpha2"`
-	Bandwidth           string  `validate:"required,num0to100"` // ← только цифры (0..100)
-	ResponseTime        string  `validate:"required,number"`    // ← в том числе float
-	Provider            string  `validate:"oneof=TransparentCalls E-Voice JustPhone"`
-	ConnectionStability float32 `validate:"required"`
-	TTFB                int     `validate:"required"`
-	VoicePurity         int     `validate:"required"`
-	MedianOfCallsTime   int     `validate:"required"`
-}
-
-// Вызов метода валидации структуры
-func (v VoiceCallData) Validate() error {
-	return validateStruct.Struct(v)
-}
 
 /*
 Считываем Voice.data file
@@ -49,21 +33,29 @@ func (v VoiceCallData) Validate() error {
 	10.Все числа с плавающей точкой должны быть приведены к типу float32
 */
 //go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=readfile
-func Fetch(logger *slog.Logger, cfg *config.CfgApp) ([]VoiceCallData, error) {
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) ([]m.VoiceCallData, error) {
 
 	// файл c voice
-	fileVoiceCall := cfg.FileVoiceCall
-	rf, err := fileutil.FileOpener(fileVoiceCall)
+	path := cfg.FileVoiceCall
+	rf, err := fileutil.FileOpener(path)
 
 	if err != nil {
-		logger.Error("Error by opening file "+fileVoiceCall, sl.Err(err))
+		logger.Error("Error by opening file "+path, sl.Err(err))
+		return nil, err
+	}
+
+	/*Почему останавливаемся тут
+	Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+	Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+	*/
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
 	//преобразовать байты в массив строк, разделитель новая строка, затем разделитель ;
 	VoiceDataLines := strings.Split(string(rf), "\n")
 
-	VoiceDatas := make([]VoiceCallData, 0, len(VoiceDataLines)) //данные будут срезе, len = , cap =	//так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
+	VoiceDatas := make([]m.VoiceCallData, 0, len(VoiceDataLines)) //данные будут срезе, len = , cap =	//так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
 
 	for _, line := range VoiceDataLines {
 		splitted, ok := textutil.SplitN(line, ';', cfg.QuantVoiceDataCol) //перешли на более дешевый метод SplitN.
@@ -93,7 +85,7 @@ func Fetch(logger *slog.Logger, cfg *config.CfgApp) ([]VoiceCallData, error) {
 		}
 
 		//заполняем структуру провайдера
-		s := VoiceCallData{
+		s := m.VoiceCallData{
 			Country:             splitted[0],
 			Bandwidth:           splitted[1],
 			ResponseTime:        splitted[2],

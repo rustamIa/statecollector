@@ -1,4 +1,4 @@
-package types
+package model
 
 import (
 	"encoding/json"
@@ -8,9 +8,7 @@ import (
 	email "main/emaildata"
 	incid "main/incidentdata"
 	mms "main/mmsdata"
-	sms "main/smsdata"
 	supp "main/support"
-	voice "main/voicedata"
 )
 
 type ResultT struct {
@@ -20,9 +18,9 @@ type ResultT struct {
 }
 
 type ResultSetT struct {
-	SMS       [][]sms.SMSData                `json:"sms"`
+	SMS       [][]SMSData                    `json:"sms"`
 	MMS       [][]mms.MMSData                `json:"mms"`
-	VoiceCall []voice.VoiceCallData          `json:"voice_call"`
+	VoiceCall []VoiceCallData                `json:"voice_call"`
 	Email     map[string][][]email.EmailData `json:"email"`
 	Billing   bill.BillingData               `json:"billing"`
 	Support   []supp.SupportData             `json:"support"` //Support   []int                          `json:”support”`
@@ -31,7 +29,7 @@ type ResultSetT struct {
 
 func PrepaireResStub() {
 
-	smsTest1 := [][]sms.SMSData{
+	smsTest1 := [][]SMSData{
 		{
 			{Country: "US", Bandwidth: "64", ResponseTime: "1923", Provider: "Rond"},
 		},
@@ -53,7 +51,7 @@ func PrepaireResStub() {
 			{Country: "GB", Provider: "Kildy", Bandwidth: "85", ResponseTime: "300"},
 		},
 	}
-	voiceTest1 := []voice.VoiceCallData{
+	voiceTest1 := []VoiceCallData{
 		{
 			Country:             "RU",
 			Bandwidth:           "86",

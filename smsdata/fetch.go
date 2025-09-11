@@ -1,27 +1,15 @@
 package smsdata
 
 import (
+	"context"
 	"log/slog"
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
 	"main/internal/textutil"
-	"main/internal/validateStruct"
 	"main/sl"
 	"strings"
 )
-
-// структура для SMSData
-type SMSData struct {
-	Country      string `validate:"iso3166_1_alpha2"`
-	Bandwidth    string `validate:"required,num0to100"` // ← только цифры (0..100)
-	ResponseTime string `validate:"required,number"`    // ← в том числе float
-	Provider     string `validate:"oneof=Topolo Rond Kildy"`
-}
-
-// Вызов метода валидации структуры
-func (v SMSData) Validate() error {
-	return validateStruct.Struct(v)
-}
 
 /*
 Считываем SMS.data file
@@ -38,39 +26,45 @@ func (v SMSData) Validate() error {
 Итог переносим в SMSData struct
 */
 //go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=readfile
-func Fetch(logger *slog.Logger, cfg *config.CfgApp) ([]SMSData, error) {
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) ([]m.SMSData, error) {
 
-	// файл c sms
-	fileSms := cfg.FileSms
+	path := cfg.FileSms
 
-	rf, err := fileutil.FileOpener(fileSms)
-
+	// Читаем целиком (маленький файл), сразу после — проверка ctx
+	rf, err := fileutil.FileOpener(path)
 	if err != nil {
-		logger.Error("Error by opening file "+fileSms, sl.Err(err))
+		logger.Error("Error by open/read file "+path, sl.Err(err))
+		return nil, err
+	}
+
+	/*Почему останавливаемся тут
+	Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+	Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+	*/
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
 	//преобразовать байты в массив строк, разделитель новая строка, затем разделитель ;
-	SMSDataLines := strings.Split(string(rf), "\n")
+	lines := strings.Split(string(rf), "\n")
 
-	SMSDatas := make([]SMSData, 0, len(SMSDataLines)) //данные SMS будут срезе, len = , cap =	//так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
+	out := make([]m.SMSData, 0, len(lines)) //данные SMS будут срезе, len = , cap =	//так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
 
-	for _, line := range SMSDataLines {
+	for _, line := range lines {
 		splitted, ok := textutil.SplitN(line, ';', cfg.QuantSMSDataCol) //перешли на более дешевый метод SplitN. было: SMSDataLine := strings.Split(line, ";")
 		if !ok {
 			continue
 		}
-		//заполняем структуру провайдера
-		s := SMSData{Country: splitted[0], Bandwidth: splitted[1], ResponseTime: splitted[2], Provider: splitted[3]}
+		s := m.SMSData{Country: splitted[0], Bandwidth: splitted[1], ResponseTime: splitted[2], Provider: splitted[3]}
 
 		//if validate.ColumnsChecker(SMSDataLine, quantSMSDataCol) { //проверка на соответствие критериям 1
 
 		if err := s.Validate(); err == nil { //проверка на соответствие критериям 2,3,4,5
-			SMSDatas = append(SMSDatas, s)
+			out = append(out, s)
 		}
 
 	}
 
-	return SMSDatas, nil
+	return out, nil
 
 }

@@ -1,11 +1,12 @@
 package smsdata
 
 import (
+	m "main/internal/model"
 	"slices"
 	"testing"
 )
 
-func providersOf(xs []SMSData) []string {
+func providersOf(xs []m.SMSData) []string {
 	out := make([]string, len(xs))
 	for i := range xs {
 		out[i] = xs[i].Provider
@@ -13,7 +14,7 @@ func providersOf(xs []SMSData) []string {
 	return out
 }
 
-func countriesOf(xs []SMSData) []string {
+func countriesOf(xs []m.SMSData) []string {
 	out := make([]string, len(xs))
 	for i := range xs {
 		out[i] = xs[i].Country
@@ -42,7 +43,7 @@ func TestCountryName(t *testing.T) {
 }
 
 func TestBuildSortedSMS_SortsAndMaps(t *testing.T) {
-	in := []SMSData{
+	in := []m.SMSData{
 		{Provider: "Twilio", Country: "us"},
 		{Provider: "telnyx", Country: "DE"},
 		{Provider: "AWS", Country: "ae"},
@@ -51,7 +52,7 @@ func TestBuildSortedSMS_SortsAndMaps(t *testing.T) {
 	}
 
 	// сохраним копию для проверки неизменности входа
-	orig := make([]SMSData, len(in))
+	orig := make([]m.SMSData, len(in))
 	copy(orig, in)
 
 	got := BuildSortedSMS(in)
@@ -62,12 +63,12 @@ func TestBuildSortedSMS_SortsAndMaps(t *testing.T) {
 	byCountry := got[1]
 
 	// 1) входной срез не должен быть изменён
-	if !slices.EqualFunc(in, orig, func(a, b SMSData) bool { return a.Provider == b.Provider && a.Country == b.Country }) {
+	if !slices.EqualFunc(in, orig, func(a, b m.SMSData) bool { return a.Provider == b.Provider && a.Country == b.Country }) {
 		t.Fatalf("input slice was modified: got %+v; want %+v", in, orig)
 	}
 
 	// 2) проверим, что страны заменены на полные названия в обоих результатах
-	for i, s := range [][]SMSData{byProvider, byCountry} {
+	for i, s := range [][]m.SMSData{byProvider, byCountry} {
 		_ = i
 		for _, row := range s {
 			switch row.Country {

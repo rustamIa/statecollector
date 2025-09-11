@@ -1,14 +1,17 @@
 package voicedata
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
 	"main/internal/validateStruct"
 )
 
@@ -26,7 +29,7 @@ func makeCfg() *config.CfgApp {
 }
 
 // удобный принтер результата: все 8 полей в строку
-func VoiceCallSliceToString(data []VoiceCallData) string {
+func VoiceCallSliceToString(data []m.VoiceCallData) string {
 	var b strings.Builder
 	for i, d := range data {
 		// %v для float32 печатает "0.86", "0.67" и т.п.
@@ -66,7 +69,10 @@ DK;11;743;JustPhone;0.67;82;74;41`
 		return []byte(sample), nil
 	}
 
-	got, err := Fetch(testLogger(), makeCfg())
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+
+	got, err := Fetch(ctx, testLogger(), makeCfg())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -207,7 +213,10 @@ CA;8;1059;E-Voice;0.7;100;70;50`,
 			// убедимся, что кастомные валидаторы зарегистрированы (init в пакете validate уже сделал это)
 			_ = validateStruct.Struct(struct{}{}) // no-op, просто дернуть пакет
 
-			got, err := Fetch(testLogger(), makeCfg())
+			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+			defer cancel()
+
+			got, err := Fetch(ctx, testLogger(), makeCfg())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

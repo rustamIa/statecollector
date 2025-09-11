@@ -6,10 +6,12 @@ import (
 	"os"
 )
 
-/* Если файл отсутствует или пуст, в консоль соответствующее сообщение.
+/*
+	Если файл отсутствует или пуст, в консоль соответствующее сообщение.
+
 Для получения размера файла  метод Stat(), который возвращает информацию о файле и ошибку.
 */
-
+const DefaultMaxFile = 10 << 12 // 40 kB
 var FileOpener = Openfile
 
 // Openfile opens a file and check it size.
@@ -29,11 +31,17 @@ func Openfile(fileName string) (result []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if !fileInfo.Mode().IsRegular() { //отсекает всё, что не является обычным файлом
+		return nil, fmt.Errorf("not a regular file: %s", fileInfo.Mode())
+	}
 	sizeFile := fileInfo.Size() //кол-во байт в файле
 
 	//файл не пустой
 	if sizeFile == 0 {
 		return nil, fmt.Errorf("opening file is empty")
+	} else if fileInfo.Size() > DefaultMaxFile {
+		return nil, fmt.Errorf("file too large: %d", fileInfo.Size())
 	} else {
 
 		result, err = io.ReadAll(file)

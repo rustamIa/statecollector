@@ -1,14 +1,16 @@
 package smsdata
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
-	"strings"
-	"testing"
-
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
+	"strings"
+	"testing"
+	"time"
 )
 
 // testLogger — no-op-логгер: пишет в io.Discard, чтобы не засорять вывод go test. -io.Discard	Полностью глушит лог-вывод в тестах.
@@ -56,8 +58,10 @@ RU;86;297;Rond`
 	fileutil.FileOpener = func(_ string) ([]byte, error) {
 		return []byte(sample), nil
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
 
-	got, err := Fetch(testLogger, makeCfg())
+	got, err := Fetch(ctx, testLogger, makeCfg())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -68,7 +72,7 @@ RU;86;297;Rond`
 	}
 }
 
-func SMSDataSliceToString(data []SMSData) string {
+func SMSDataSliceToString(data []m.SMSData) string {
 	var b strings.Builder
 	for i, d := range data {
 		fmt.Fprintf(&b, "%s;%s;%s;%s", d.Country, d.Bandwidth, d.ResponseTime, d.Provider)
@@ -197,7 +201,10 @@ DK;12;1454;Topolo`,
 				return []byte(tt.sample), nil
 			}
 
-			got, err := Fetch(testLogger, makeCfg())
+			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+			defer cancel()
+
+			got, err := Fetch(ctx, testLogger, makeCfg())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

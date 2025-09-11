@@ -19,11 +19,11 @@ import (
 	"main/config"
 	"main/emaildata"
 	"main/incidentdata"
-	"main/internal/types"
+	"main/internal/model"
 	mms "main/mmsdata"
 	sms "main/smsdata"
 	"main/support"
-	"main/voicedata"
+	voice "main/voicedata"
 )
 
 // LogCfg описывает параметры логирования, которые удобнее всего задавать флагами/ENV.
@@ -151,54 +151,10 @@ func goFetchValue(g *errgroup.Group, parentCtx context.Context, logger *slog.Log
 	})
 }
 
-// для примера сделан отдельный goFetchSMS - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
-// в main.go
-func goFetchSMS(
-	g *errgroup.Group,
-	parentCtx context.Context,
-	logger *slog.Logger,
-	timeout time.Duration,
-	cfg *config.CfgApp,
-	rs *types.ResultSetT,
-	mu *sync.Mutex,
-) {
-	g.Go(func() error {
-		//ctx, cancel := context.WithTimeout(parentCtx, timeout)
-		//defer cancel()
-
-		start := time.Now()
-		nonSortedData, err := sms.Fetch(logger, cfg) // []sms.SMSData
-		if err != nil {
-			logger.Info("sms NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
-			return nil // не валим группу
-		}
-
-		sortedData := sms.BuildSortedSMS(nonSortedData) // [][]sms.SMSData
-
-		// сохранить результат с защитой от гонок
-		mu.Lock()
-		rs.SMS = sortedData
-		mu.Unlock()
-
-		// посчитать реальное количество строк во всех под-срезах
-		total := 0
-		for _, part := range sortedData {
-			total += len(part)
-		}
-
-		logger.Info("sms fetched",
-			slog.Int("count", total),
-			slog.Duration("dur", time.Since(start)),
-		)
-		logger.Debug("sms data:", " ", sortedData)
-		return nil
-	})
-}
-
 // run — «бизнес-логика», умеет останавливаться по ctx.Done().
 func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	var (
-		rs types.ResultSetT
+		rs model.ResultSetT
 		mu sync.Mutex
 	)
 	parentCtx := ctx // родительский ctx живёт до SIGINT/SIGTERM
@@ -218,16 +174,14 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	perReqTimeout := 3 * time.Second
 
 	// 4) параллельные задачи (каждая – короткая обёртка)
-	goFetchSMS(g, ctx, logger, perReqTimeout, cfg, &rs, &mu) //с одной стороны вызов проще, но аргументов уже много - и не особо наглядно
-
+	sms.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu) //с одной стороны вызов проще, но аргументов уже много - и не особо наглядно
 	// goFetchSlice(g, ctx, logger, "sms", perReqTimeout, func(ctx context.Context) ([]sms.SMSData, error) {
-	// 	// TODO: лучше, чтобы sms.Fetch тоже принимал ctx
 	// 	return sms.Fetch(logger, cfg)
 	// })
-
-	goFetchSlice(g, ctx, logger, "voice", perReqTimeout, func(ctx context.Context) ([]voicedata.VoiceCallData, error) {
-		return voicedata.Fetch(logger, cfg)
-	})
+	voice.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu)
+	// goFetchSlice(g, ctx, logger, "voice", perReqTimeout, func(ctx context.Context) ([]voicedata.VoiceCallData, error) {
+	// 	return voicedata.Fetch(logger, cfg)
+	// })
 	goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
 		return emaildata.Fetch(logger, cfg)
 	})
