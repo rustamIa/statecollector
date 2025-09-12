@@ -17,10 +17,11 @@ import (
 
 	"main/billingstat"
 	"main/config"
-	"main/emaildata"
+
 	"main/incidentdata"
 	"main/internal/model"
 
+	email "main/emaildata"
 	mms "main/mmsdata"
 	sms "main/smsdata"
 	"main/support"
@@ -183,9 +184,11 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	// goFetchSlice(g, ctx, logger, "voice", perReqTimeout, func(ctx context.Context) ([]voicedata.VoiceCallData, error) {
 	// 	return voicedata.Fetch(logger, cfg)
 	// })
-	goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
-		return emaildata.Fetch(logger, cfg)
-	})
+
+	email.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu)
+	// goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
+	// 	return emaildata.Fetch(logger, cfg)
+	// })
 	goFetchValue(g, ctx, logger, "billing", perReqTimeout, func(ctx context.Context) (any, error) {
 		return billingstat.Fetch(logger, cfg) // вернёт структуру/сводку
 	})

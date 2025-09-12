@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"main/config"
-	countries "main/internal/alpha2"
 	m "main/internal/model"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -14,6 +14,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 )
+
+var fetchEmails = Fetch
 
 // для примера сделан отдельный goFetch - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
 // контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
@@ -37,21 +39,21 @@ func GoFetch(
 
 		start := time.Now()
 
-		nonSortedData, err := Fetch(ctx, logger, cfg) // []sms.SMSData
+		nonSortedData, err := fetchEmails(ctx, logger, cfg)
 		if err != nil {
 			// отличаем отмену от реальной ошибки
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				logger.Info("sms cancelled", slog.Duration("dur", time.Since(start)))
+				logger.Info("email cancelled", slog.Duration("dur", time.Since(start)))
 				return nil
 			}
-			logger.Info("sms NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+			logger.Info("email NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
 			return nil // не валим группу
 		}
 
 		// перед публикацией ещё раз убеждаемся, что не отменено
 		select {
 		case <-ctx.Done():
-			logger.Info("sms cancelled before publish", slog.Duration("dur", time.Since(start)))
+			logger.Info("email cancelled before publish", slog.Duration("dur", time.Since(start)))
 			return nil
 		default:
 		}
@@ -69,44 +71,81 @@ func GoFetch(
 			total += len(part)
 		}
 
-		logger.Info("sms fetched",
+		logger.Info("email fetched",
 			slog.Int("count", total),
 			slog.Duration("dur", time.Since(start)),
 		)
-		logger.Debug("sms data:", " ", sortedData)
+		logger.Debug("email data:", " ", sortedData)
 		return nil
 	})
 }
 
-// BuildSortedSMS:
-// 1) сортируем всех провайдеров каждой страны по ср времени доставки письма
-// 2) 1й срез 3 самых быстрых провайдера
-// 3) 2й срез 3 самых медленных провайдера
-
+// BuildSortedEmails группирует по стране и провайдеру, считает средний DeliveryTime,
+// и для каждой страны возвращает [0] — топ-3 самых быстрых, [1] — топ-3 самых медленных.
 func BuildSortedEmails(in []m.EmailData) map[string][][]m.EmailData {
-	// 1) нормализуем страны (делаем копию входного среза)
-	mapped := make([]m.SMSData, len(in))
-	copy(mapped, in)
-	for i := range mapped {
-		mapped[i].Country = countries.CountryName(mapped[i].Country)
+	// country -> provider -> (sum, count)
+	type agg struct {
+		sum   int
+		count int
 	}
 
-	// 2) сортировка по провайдеру (A→Z)
-	byProvider := make([]m.SMSData, len(mapped))
-	copy(byProvider, mapped)
+	byCountryProv := make(map[string]map[string]agg, 64)
 
-	slices.SortStableFunc(byProvider, func(a, b m.SMSData) int {
-		return strings.Compare(a.Provider, b.Provider) //не учитывал strings.ToLower, может и стоит
-	})
+	for _, e := range in {
+		c := strings.ToUpper(strings.TrimSpace(e.Country)) // в Fetch уже валидация alpha-2, просто нормализуем регистр
+		if _, ok := byCountryProv[c]; !ok {                //проверяем, есть ли уже внутренняя карта для страны c
+			byCountryProv[c] = make(map[string]agg, 8)
+		}
+		a := byCountryProv[c][e.Provider] //если ключа e.Provider ещё нет, индексирование карты возвращает нулевое значение типа agg, т.е. agg{sum:0, count:0}
+		a.sum += e.DeliveryTime
+		a.count++
+		byCountryProv[c][e.Provider] = a
+	}
 
-	// 3) сортировка по стране (A→Z)
-	byCountry := make([]m.SMSData, len(mapped))
-	copy(byCountry, mapped)
+	out := make(map[string][][]m.EmailData, len(byCountryProv))
 
-	slices.SortStableFunc(byCountry, func(a, b m.SMSData) int {
-		return strings.Compare(a.Country, b.Country)
-	})
+	for country, provAgg := range byCountryProv {
+		// Собираем усреднённые записи по провайдерам этой страны
+		avgList := make([]m.EmailData, 0, len(provAgg))
+		for provider, a := range provAgg {
+			avg := int(math.Round(float64(a.sum) / float64(a.count)))
+			avgList = append(avgList, m.EmailData{
+				Country:      country,
+				Provider:     provider,
+				DeliveryTime: avg,
+			})
+		}
 
-	// 4) объединяем
-	return [][]m.SMSData{byProvider, byCountry}
+		// Сортируем по среднему времени (меньше = быстрее), при равенстве — по имени провайдера
+		slices.SortStableFunc(avgList, func(a, b m.EmailData) int { //странная ф-ия сортировки
+			if a.DeliveryTime < b.DeliveryTime {
+				return -1
+			}
+			if a.DeliveryTime > b.DeliveryTime {
+				return 1
+			}
+			return strings.Compare(a.Provider, b.Provider)
+		})
+
+		// Топ-3 быстрых
+		n := 3
+		if len(avgList) < n {
+			n = len(avgList)
+		}
+		fast := make([]m.EmailData, n)
+		copy(fast, avgList[:n])
+
+		// Топ-3 медленных (с конца)
+		mn := 3
+		if len(avgList) < mn {
+			mn = len(avgList)
+		}
+		slow := make([]m.EmailData, mn)
+		// Берём последние mn по возрастанию -> это самые медленные
+		copy(slow, avgList[len(avgList)-mn:])
+
+		out[country] = [][]m.EmailData{fast, slow}
+	}
+
+	return out
 }
