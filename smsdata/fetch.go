@@ -30,7 +30,7 @@ func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) ([]m.SM
 
 	path := cfg.FileSms
 
-	// Читаем целиком (маленький файл), сразу после — проверка ctx
+	// Читаем целиком (маленький файл)
 	rf, err := fileutil.FileOpener(path)
 	if err != nil {
 		logger.Error("Error by open/read file "+path, sl.Err(err))

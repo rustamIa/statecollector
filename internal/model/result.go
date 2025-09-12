@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"log"
 	bill "main/billingstat"
-	email "main/emaildata"
 	incid "main/incidentdata"
-	mms "main/mmsdata"
 	supp "main/support"
 )
 
@@ -18,13 +16,13 @@ type ResultT struct {
 }
 
 type ResultSetT struct {
-	SMS       [][]SMSData                    `json:"sms"`
-	MMS       [][]mms.MMSData                `json:"mms"`
-	VoiceCall []VoiceCallData                `json:"voice_call"`
-	Email     map[string][][]email.EmailData `json:"email"`
-	Billing   bill.BillingData               `json:"billing"`
-	Support   []supp.SupportData             `json:"support"` //Support   []int                          `json:”support”`
-	Incidents []incid.IncidentData           `json:"incident"`
+	SMS       [][]SMSData              `json:"sms"`
+	MMS       [][]MMSData              `json:"mms"`
+	VoiceCall []VoiceCallData          `json:"voice_call"`
+	Email     map[string][][]EmailData `json:"email"`
+	Billing   bill.BillingData         `json:"billing"`
+	Support   []supp.SupportData       `json:"support"` //Support   []int                          `json:”support”`
+	Incidents []incid.IncidentData     `json:"incident"`
 }
 
 func PrepaireResStub() {
@@ -43,7 +41,7 @@ func PrepaireResStub() {
 			{Country: "BL", Bandwidth: "57", ResponseTime: "267", Provider: "Kildy"},
 		},
 	}
-	mmsTest1 := [][]mms.MMSData{
+	mmsTest1 := [][]MMSData{
 		{
 			{Country: "US", Provider: "Rond", Bandwidth: "36", ResponseTime: "1576"},
 		},
@@ -84,7 +82,7 @@ func PrepaireResStub() {
 		},
 	}
 
-	emailTest1 := map[string][][]email.EmailData{
+	emailTest1 := map[string][][]EmailData{
 		"RU": {
 			{
 				{Country: "RU", Provider: "Gmail", DeliveryTime: 23},

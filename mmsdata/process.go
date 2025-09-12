@@ -1,4 +1,4 @@
-package smsdata
+package mmsdata
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"main/config"
 	countries "main/internal/alpha2"
 	m "main/internal/model"
+	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -22,10 +23,12 @@ func GoFetch(
 	parentCtx context.Context,
 	logger *slog.Logger,
 	timeout time.Duration,
+	client *http.Client,
 	cfg *config.CfgApp,
 	rs *m.ResultSetT,
 	mu *sync.Mutex,
 ) {
+
 	g.Go(func() error {
 		// таймаут на задачу
 		ctx := parentCtx
@@ -37,30 +40,33 @@ func GoFetch(
 
 		start := time.Now()
 
-		nonSortedData, err := Fetch(ctx, logger, cfg) // []sms.SMSData
+		s := NewService(logger, cfg, client)
+
+		nonSortedData, err := s.Fetch(ctx)
 		if err != nil {
 			// отличаем отмену от реальной ошибки
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				logger.Info("sms cancelled", slog.Duration("dur", time.Since(start)))
+				logger.Info("mms cancelled", slog.Duration("dur", time.Since(start)))
 				return nil
 			}
-			logger.Info("sms NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+			logger.Info("mms NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
 			return nil // не валим группу
 		}
 
 		// перед публикацией ещё раз убеждаемся, что не отменено
 		select {
 		case <-ctx.Done():
-			logger.Info("sms cancelled before publish", slog.Duration("dur", time.Since(start)))
+			logger.Info("mms cancelled before publish", slog.Duration("dur", time.Since(start)))
 			return nil
 		default:
 		}
+
 		//все что ниже продолжит выполнение как по default
-		sortedData := BuildSortedSMS(nonSortedData) // [][]sms.SMSData
+		sortedData := BuildSortedMMS(nonSortedData) // [][]MMSData
 
 		// сохранить результат с защитой от гонок
 		mu.Lock()
-		rs.SMS = sortedData
+		rs.MMS = sortedData
 		mu.Unlock()
 
 		// посчитать реальное количество строк во всех под-срезах
@@ -69,11 +75,11 @@ func GoFetch(
 			total += len(part)
 		}
 
-		logger.Info("sms fetched",
+		logger.Info("mms fetched",
 			slog.Int("count", total),
 			slog.Duration("dur", time.Since(start)),
 		)
-		logger.Debug("sms data:", " ", sortedData)
+		logger.Debug("mms data:", " ", sortedData)
 		return nil
 	})
 }
@@ -88,30 +94,30 @@ func GoFetch(
 //
 // ВАЖНО: валидацию вы уже прошли в Fetch (там Country — alpha-2).
 // После подмены на полные названия повторно Validate() вызывать не нужно.
-func BuildSortedSMS(in []m.SMSData) [][]m.SMSData {
+func BuildSortedMMS(in []m.MMSData) [][]m.MMSData {
 	// 1) нормализуем страны (делаем копию входного среза)
-	mapped := make([]m.SMSData, len(in))
+	mapped := make([]m.MMSData, len(in))
 	copy(mapped, in)
 	for i := range mapped {
 		mapped[i].Country = countries.CountryName(mapped[i].Country)
 	}
 
 	// 2) сортировка по провайдеру (A→Z)
-	byProvider := make([]m.SMSData, len(mapped))
+	byProvider := make([]m.MMSData, len(mapped))
 	copy(byProvider, mapped)
 
-	slices.SortStableFunc(byProvider, func(a, b m.SMSData) int {
+	slices.SortStableFunc(byProvider, func(a, b m.MMSData) int {
 		return strings.Compare(a.Provider, b.Provider) //не учитывал strings.ToLower, может и стоит
 	})
 
 	// 3) сортировка по стране (A→Z)
-	byCountry := make([]m.SMSData, len(mapped))
+	byCountry := make([]m.MMSData, len(mapped))
 	copy(byCountry, mapped)
 
-	slices.SortStableFunc(byCountry, func(a, b m.SMSData) int {
+	slices.SortStableFunc(byCountry, func(a, b m.MMSData) int {
 		return strings.Compare(a.Country, b.Country)
 	})
 
 	// 4) объединяем
-	return [][]m.SMSData{byProvider, byCountry}
+	return [][]m.MMSData{byProvider, byCountry}
 }

@@ -1,4 +1,4 @@
-package smsdata
+package emaildata
 
 import (
 	"context"
@@ -56,11 +56,11 @@ func GoFetch(
 		default:
 		}
 		//все что ниже продолжит выполнение как по default
-		sortedData := BuildSortedSMS(nonSortedData) // [][]sms.SMSData
+		sortedData := BuildSortedEmails(nonSortedData)
 
 		// сохранить результат с защитой от гонок
 		mu.Lock()
-		rs.SMS = sortedData
+		rs.Email = sortedData
 		mu.Unlock()
 
 		// посчитать реальное количество строк во всех под-срезах
@@ -79,16 +79,11 @@ func GoFetch(
 }
 
 // BuildSortedSMS:
-// 1) подменяет Country: alpha-2 → полное название,
-// 2) готовит два набора:
-//   - по провайдеру A→Z,
-//   - по стране A→Z,
-//
-// 3) объединяет в [][]SMSData, где [0] — сортировка по провайдеру, [1] — по стране.
-//
-// ВАЖНО: валидацию вы уже прошли в Fetch (там Country — alpha-2).
-// После подмены на полные названия повторно Validate() вызывать не нужно.
-func BuildSortedSMS(in []m.SMSData) [][]m.SMSData {
+// 1) сортируем всех провайдеров каждой страны по ср времени доставки письма
+// 2) 1й срез 3 самых быстрых провайдера
+// 3) 2й срез 3 самых медленных провайдера
+
+func BuildSortedEmails(in []m.EmailData) map[string][][]m.EmailData {
 	// 1) нормализуем страны (делаем копию входного среза)
 	mapped := make([]m.SMSData, len(in))
 	copy(mapped, in)

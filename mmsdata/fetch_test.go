@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"main/config"
+	m "main/internal/model"
 )
 
 // тихий логгер для тестов
@@ -39,7 +40,7 @@ func TestFetch_OK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	want := []MMSData{{Country: "US", Provider: "Rond", Bandwidth: "36", ResponseTime: "1576"}}
+	want := []m.MMSData{{Country: "US", Provider: "Rond", Bandwidth: "36", ResponseTime: "1576"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
@@ -63,7 +64,7 @@ func TestFetch_OK_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	if !reflect.DeepEqual(got, []MMSData{}) {
+	if !reflect.DeepEqual(got, []m.MMSData{}) {
 		t.Fatalf("got %#v, want empty slice", got)
 	}
 }
@@ -107,7 +108,7 @@ func TestFetch_SkipBadElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	want := []MMSData{
+	want := []m.MMSData{
 		{Country: "US", Provider: "Rond", Bandwidth: "36", ResponseTime: "1576"},
 		{Country: "GB", Provider: "Kildy", Bandwidth: "85", ResponseTime: "300"},
 	}

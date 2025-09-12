@@ -1,6 +1,7 @@
 package smsdata
 
 import (
+	countries "main/internal/alpha2"
 	m "main/internal/model"
 	"slices"
 	"testing"
@@ -35,7 +36,7 @@ func TestCountryName(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		got := countryName(tc.in)
+		got := countries.CountryName(tc.in)
 		if got != tc.want {
 			t.Fatalf("countryName(%q) = %q; want %q", tc.in, got, tc.want)
 		}

@@ -29,7 +29,7 @@ func FetchArray[T any](
 	l := log.With(slog.String("op", op), slog.String("url", url))
 	start := time.Now()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil) //Если ctx будет отменён (graceful shutdown наверху), транспорт net/http прервёт операцию: Do или последующее чтение тела вернёт ошибку (типично context canceled).
 	if err != nil {
 		l.Error("build request", slog.Any("err", err))
 		return nil, fmt.Errorf("%s: build request: %w", op, err)

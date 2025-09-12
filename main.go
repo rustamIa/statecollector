@@ -20,6 +20,7 @@ import (
 	"main/emaildata"
 	"main/incidentdata"
 	"main/internal/model"
+
 	mms "main/mmsdata"
 	sms "main/smsdata"
 	"main/support"
@@ -163,7 +164,7 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	client := &http.Client{Timeout: 5 * time.Second}
 
 	// 2) конструируем сервисы с контекстным Fetch
-	svcMms := mms.NewService(logger, cfg, client)
+	//svcMms := mms.NewService(logger, cfg, client)
 	svcSupp := support.NewService(logger, cfg, client)
 	svcInc := incidentdata.NewService(logger, cfg, client)
 
@@ -188,9 +189,11 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	goFetchValue(g, ctx, logger, "billing", perReqTimeout, func(ctx context.Context) (any, error) {
 		return billingstat.Fetch(logger, cfg) // вернёт структуру/сводку
 	})
-	goFetchSlice(g, ctx, logger, "mms", perReqTimeout, func(ctx context.Context) ([]mms.MMSData, error) {
-		return svcMms.Fetch(ctx)
-	})
+
+	mms.GoFetch(g, ctx, logger, perReqTimeout, client, cfg, &rs, &mu)
+	// goFetchSlice(g, ctx, logger, "mms", perReqTimeout, func(ctx context.Context) ([]mms.MMSData, error) {
+	// 	return svcMms.Fetch(ctx)
+	// })
 	goFetchSlice(g, ctx, logger, "support", perReqTimeout, func(ctx context.Context) ([]support.SupportData, error) {
 		return svcSupp.Fetch(ctx)
 	})

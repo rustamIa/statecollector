@@ -1,14 +1,16 @@
 package emaildata
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
-	"strings"
-	"testing"
-
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
+	"strings"
+	"testing"
+	"time"
 )
 
 // no-op-логгер для тестов
@@ -25,7 +27,7 @@ func makeCfg() *config.CfgApp {
 }
 
 // Удобный принтер результата: строки через `;`
-func EmailDataSliceToString(data []EmailData) string {
+func EmailDataSliceToString(data []m.EmailData) string {
 	var b strings.Builder
 	for i, e := range data {
 		fmt.Fprintf(&b, "%s;%s;%d", e.Country, e.Provider, e.DeliveryTime)
@@ -67,8 +69,10 @@ RU;GMX;246`
 	fileutil.FileOpener = func(_ string) ([]byte, error) {
 		return []byte(sample), nil
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	got, err := Fetch(testLogger(), makeCfg())
+	got, err := Fetch(ctx, testLogger(), makeCfg())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -150,7 +154,10 @@ GB;Hotmail;300`,
 				return []byte(tt.sample), nil
 			}
 
-			got, err := Fetch(testLogger(), makeCfg())
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			got, err := Fetch(ctx, testLogger(), makeCfg())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

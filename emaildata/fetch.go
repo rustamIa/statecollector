@@ -1,27 +1,16 @@
 package emaildata
 
 import (
+	"context"
 	"log/slog"
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
 	"main/internal/textutil"
-	"main/internal/validateStruct"
 	"main/sl"
 	"strconv"
 	"strings"
 )
-
-// структура для SMSData
-type EmailData struct {
-	Country      string `validate:"iso3166_1_alpha2"`
-	Provider     string `validate:"oneof=Gmail Yahoo Hotmail MSN Orange Comcast AOL Live RediffMail GMX Protonmail Yandex Mail.ru"`
-	DeliveryTime int    `validate:"required"`
-}
-
-// Вызов метода валидации структуры
-func (v EmailData) Validate() error {
-	return validateStruct.Struct(v)
-}
 
 /*
 Считываем Email.data file
@@ -40,23 +29,32 @@ func (v EmailData) Validate() error {
 	9. Все целочисленные данные должны быть приведены к типу int
 */
 
-func Fetch(logger *slog.Logger, cfg *config.CfgApp) ([]EmailData, error) {
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) ([]m.EmailData, error) {
 
 	// файл c voice
-	fileEmail := cfg.FileEmail
-	rf, err := fileutil.FileOpener(fileEmail)
+	path := cfg.FileEmail
+
+	rf, err := fileutil.FileOpener(path)
 
 	if err != nil {
-		logger.Error("Error by opening file "+fileEmail, sl.Err(err))
+		logger.Error("Error by opening file "+path, sl.Err(err))
+		return nil, err
+	}
+
+	/*Почему останавливаемся тут
+	Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+	Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+	*/
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
 	//преобразовать байты в массив строк, разделитель новая строка, затем разделитель ;
-	EmailDataLines := strings.Split(string(rf), "\n")
+	lines := strings.Split(string(rf), "\n")
 
-	EmailDatas := make([]EmailData, 0, len(EmailDataLines)) //данные будут срезе, len = , cap =	//так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
+	out := make([]m.EmailData, 0, len(lines)) //данные будут срезе, len = , cap =	//так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
 
-	for _, line := range EmailDataLines {
+	for _, line := range lines {
 		splitted, ok := textutil.SplitN(line, ';', cfg.QuantEmailDataCol) //критерий 5,8 //перешли на более дешевый метод SplitN.
 		if !ok {
 			continue
@@ -69,17 +67,17 @@ func Fetch(logger *slog.Logger, cfg *config.CfgApp) ([]EmailData, error) {
 		}
 
 		//заполняем структуру провайдера
-		e := EmailData{
+		e := m.EmailData{
 			Country:      splitted[0],
 			Provider:     splitted[1],
 			DeliveryTime: DeliveryTime,
 		}
 
 		if err := e.Validate(); err == nil { //проверка на соответствие критериям 4, 6, 7
-			EmailDatas = append(EmailDatas, e)
+			out = append(out, e)
 		}
 
 	}
-	return EmailDatas, nil
+	return out, nil
 
 }

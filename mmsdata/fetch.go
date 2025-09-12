@@ -10,20 +10,8 @@ import (
 	"main/config"
 	"main/internal/httpx"
 	"main/internal/jsonx"
-	"main/internal/validateStruct"
+	m "main/internal/model"
 )
-
-// структура для MMSData
-type MMSData struct {
-	Country      string `json:"country" validate:"iso3166_1_alpha2"`
-	Provider     string `json:"provider" validate:"oneof=Topolo Rond Kildy"`
-	Bandwidth    string `json:"bandwidth" validate:"required,num0to100"`
-	ResponseTime string `json:"response_time" validate:"required,number"`
-}
-
-func (v MMSData) Validate() error {
-	return validateStruct.Struct(v)
-}
 
 // В продакшене передавайте http.Client извне, чтобы реиспользовать пул соединений.
 type Service struct {
@@ -39,12 +27,12 @@ func NewService(log *slog.Logger, cfg *config.CfgApp, client *http.Client) *Serv
 	return &Service{log: log, cfg: cfg, client: client}
 }
 
-func (s *Service) Fetch(ctx context.Context) ([]MMSData, error) {
-	decode := func(r io.Reader) ([]MMSData, error) {
-		return jsonx.DecodeArrayFromReader[MMSData](r, &jsonx.Options[MMSData]{})
+func (s *Service) Fetch(ctx context.Context) ([]m.MMSData, error) {
+	decode := func(r io.Reader) ([]m.MMSData, error) {
+		return jsonx.DecodeArrayFromReader[m.MMSData](r, &jsonx.Options[m.MMSData]{})
 	}
 
-	return httpx.FetchArray[MMSData](
+	return httpx.FetchArray[m.MMSData](
 		ctx,
 		s.log,
 		s.client,

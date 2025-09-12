@@ -1,4 +1,3 @@
-// validate/validate_test.go
 package validateStruct
 
 import (
