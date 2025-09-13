@@ -15,12 +15,12 @@ import (
 
 	"golang.org/x/sync/errgroup" //менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
 
-	"main/billingstat"
 	"main/config"
 
 	"main/incidentdata"
 	"main/internal/model"
 
+	bill "main/billingstat"
 	email "main/emaildata"
 	mms "main/mmsdata"
 	sms "main/smsdata"
@@ -135,24 +135,6 @@ func goFetchSlice[T any](g *errgroup.Group, parentCtx context.Context, logger *s
 	})
 }
 
-// аналог для «неслайсовых» результатов (например, сводка/структура)
-func goFetchValue(g *errgroup.Group, parentCtx context.Context, logger *slog.Logger, name string, timeOut time.Duration, fn func(ctx context.Context) (any, error)) {
-	g.Go(func() error {
-		ctx, cancel := context.WithTimeout(parentCtx, timeOut)
-		defer cancel()
-
-		start := time.Now()
-		val, err := fn(ctx)
-		if err != nil {
-			logger.Info(name+" NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
-			return nil
-		}
-		logger.Info(name+" fetched", slog.Duration("dur", time.Since(start)))
-		logger.Debug(name+" data:", " ", val)
-		return nil
-	})
-}
-
 // run — «бизнес-логика», умеет останавливаться по ctx.Done().
 func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	var (
@@ -166,7 +148,6 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 
 	// 2) конструируем сервисы с контекстным Fetch
 	//svcMms := mms.NewService(logger, cfg, client)
-	svcSupp := support.NewService(logger, cfg, client)
 	svcInc := incidentdata.NewService(logger, cfg, client)
 
 	// 3) errgroup с лимитом параллелизма
@@ -189,17 +170,18 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	// goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
 	// 	return emaildata.Fetch(logger, cfg)
 	// })
-	goFetchValue(g, ctx, logger, "billing", perReqTimeout, func(ctx context.Context) (any, error) {
-		return billingstat.Fetch(logger, cfg) // вернёт структуру/сводку
-	})
 
 	mms.GoFetch(g, ctx, logger, perReqTimeout, client, cfg, &rs, &mu)
 	// goFetchSlice(g, ctx, logger, "mms", perReqTimeout, func(ctx context.Context) ([]mms.MMSData, error) {
 	// 	return svcMms.Fetch(ctx)
 	// })
-	goFetchSlice(g, ctx, logger, "support", perReqTimeout, func(ctx context.Context) ([]support.SupportData, error) {
-		return svcSupp.Fetch(ctx)
-	})
+
+	bill.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu)
+
+	support.GoFetch(g, ctx, logger, perReqTimeout, client, cfg, &rs, &mu)
+	// goFetchSlice(g, ctx, logger, "support", perReqTimeout, func(ctx context.Context) ([]support.SupportData, error) {
+	// 	return svcSupp.Fetch(ctx)
+	// })
 	goFetchSlice(g, ctx, logger, "incident", perReqTimeout, func(ctx context.Context) ([]incidentdata.IncidentData, error) {
 		return svcInc.Fetch(ctx)
 	})

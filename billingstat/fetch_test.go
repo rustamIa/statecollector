@@ -1,12 +1,15 @@
 package billingstat
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
 	"testing"
+	"time"
 )
 
 // no-op-логгер для тестов
@@ -22,7 +25,7 @@ func makeCfg(fileName string) *config.CfgApp {
 }
 
 // Удобный принтер результата: все 6 полей в строку
-func BillingDataToString(data BillingData) string {
+func BillingDataToString(data m.BillingData) string {
 	return fmt.Sprintf("%t;%t;%t;%t;%t;%t",
 		data.CreateCustomer, data.Purchase, data.Payout,
 		data.Recurring, data.FraudControl, data.CheckoutPage)
@@ -51,13 +54,13 @@ func TestGet(t *testing.T) {
 	tests := []struct {
 		name       string
 		fileName   string
-		wantResult BillingData
+		wantResult m.BillingData
 		wantErr    bool
 	}{
 		{
 			name:     "valid file",
 			fileName: "valid_file",
-			wantResult: BillingData{
+			wantResult: m.BillingData{
 				CreateCustomer: false,
 				Purchase:       true,
 				Payout:         false,
@@ -70,7 +73,7 @@ func TestGet(t *testing.T) {
 		{
 			name:     "empty file",
 			fileName: "empty_file",
-			wantResult: BillingData{
+			wantResult: m.BillingData{
 				CreateCustomer: false,
 				Purchase:       false,
 				Payout:         false,
@@ -83,7 +86,7 @@ func TestGet(t *testing.T) {
 		{
 			name:     "file not found",
 			fileName: "not_existing_file",
-			wantResult: BillingData{
+			wantResult: m.BillingData{
 				CreateCustomer: false,
 				Purchase:       false,
 				Payout:         false,
@@ -100,7 +103,10 @@ func TestGet(t *testing.T) {
 			cfg := makeCfg(tt.fileName)
 			logger := testLogger()
 
-			got, err := Fetch(logger, cfg)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+
+			got, err := Fetch(ctx, logger, cfg)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)

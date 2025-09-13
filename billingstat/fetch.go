@@ -1,33 +1,34 @@
 package billingstat
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"main/config"
 	"main/internal/fileutil"
+	m "main/internal/model"
 	"main/sl"
 	"reflect"
 )
 
-type BillingData struct {
-	CreateCustomer bool
-	Purchase       bool
-	Payout         bool
-	Recurring      bool
-	FraudControl   bool
-	CheckoutPage   bool
-}
-
 //go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=readfile
-func Fetch(logger *slog.Logger, cfg *config.CfgApp) (BillingData, error) {
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) (m.BillingData, error) {
 
 	// файл c voice
-	fileBillingState := cfg.FileBillingState
-	rf, err := fileutil.FileOpener(fileBillingState)
-	bd := &BillingData{}
+	path := cfg.FileBillingState
+	rf, err := fileutil.FileOpener(path)
+	bd := &m.BillingData{}
 
 	if err != nil {
-		logger.Error("Error by opening file "+fileBillingState, sl.Err(err))
+		logger.Error("Error by opening file "+path, sl.Err(err))
+		return *bd, err
+	}
+
+	/*Почему останавливаемся тут
+	Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+	Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+	*/
+	if err := ctx.Err(); err != nil {
 		return *bd, err
 	}
 
@@ -40,7 +41,7 @@ func Fetch(logger *slog.Logger, cfg *config.CfgApp) (BillingData, error) {
 	return *bd, nil
 }
 
-func decodeBinaryState(txt []byte, bd *BillingData) (err error) {
+func decodeBinaryState(txt []byte, bd *m.BillingData) (err error) {
 	if len(txt) == 0 {
 		err := fmt.Errorf("empty file")
 		return err
@@ -79,7 +80,7 @@ func powerOfTwo(exp int) uint8 {
 }
 
 func getStateDec(s []byte) (dec uint8, err error) {
-	quanBits := reflect.TypeOf(BillingData{}).NumField() //по заданию полей 6. а можно задать так: bdType := reflect.TypeOf(BillingData{}) numFields := bdType.NumField()
+	quanBits := reflect.TypeOf(m.BillingData{}).NumField() //по заданию полей 6. а можно задать так: bdType := reflect.TypeOf(m.BillingData{}) numFields := bdType.NumField()
 
 	j := 0
 

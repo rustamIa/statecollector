@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	bill "main/billingstat"
 	incid "main/incidentdata"
-	supp "main/support"
 )
 
 type ResultT struct {
@@ -20,8 +18,8 @@ type ResultSetT struct {
 	MMS       [][]MMSData              `json:"mms"`
 	VoiceCall []VoiceCallData          `json:"voice_call"`
 	Email     map[string][][]EmailData `json:"email"`
-	Billing   bill.BillingData         `json:"billing"`
-	Support   []supp.SupportData       `json:"support"` //Support   []int                          `json:”support”`
+	Billing   BillingData              `json:"billing"`
+	Support   []int                    `json:"support"`
 	Incidents []incid.IncidentData     `json:"incident"`
 }
 

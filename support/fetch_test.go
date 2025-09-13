@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"main/config"
+	m "main/internal/model"
 )
 
 // тихий логгер
@@ -39,7 +40,7 @@ func TestFetch_OK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	want := []SupportData{{Topic: "SMS", ActiveTickets: 13}}
+	want := []m.SupportData{{Topic: "SMS", ActiveTickets: 13}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
@@ -63,7 +64,7 @@ func TestFetch_OK_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	if !reflect.DeepEqual(got, []SupportData{}) {
+	if !reflect.DeepEqual(got, []m.SupportData{}) {
 		t.Fatalf("got %#v, want empty slice", got)
 	}
 }
@@ -89,7 +90,7 @@ func TestFetch_SkipBadElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	want := []SupportData{
+	want := []m.SupportData{
 		{Topic: "SMS", ActiveTickets: 13},
 		{Topic: "OK", ActiveTickets: 1},
 	}
