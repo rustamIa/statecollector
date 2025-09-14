@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	incid "main/incidentdata"
 )
 
 type ResultT struct {
@@ -20,7 +19,7 @@ type ResultSetT struct {
 	Email     map[string][][]EmailData `json:"email"`
 	Billing   BillingData              `json:"billing"`
 	Support   []int                    `json:"support"`
-	Incidents []incid.IncidentData     `json:"incident"`
+	Incidents []IncidentData           `json:"incident"`
 }
 
 func PrepaireResStub() {

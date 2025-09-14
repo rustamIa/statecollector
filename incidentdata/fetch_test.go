@@ -4,13 +4,13 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"main/config"
+	m "main/internal/model"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
-
-	"main/config"
 )
 
 // тихий логгер для тестов
@@ -36,7 +36,7 @@ func TestFetch_OK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	want := []IncidentData{{Topic: "Billing isn’t allowed in US", Status: "closed"}}
+	want := []m.IncidentData{{Topic: "Billing isn’t allowed in US", Status: "closed"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %#v, want %#v", got, want)
 	}
@@ -60,7 +60,7 @@ func TestFetch_OK_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	if !reflect.DeepEqual(got, []IncidentData{}) {
+	if !reflect.DeepEqual(got, []m.IncidentData{}) {
 		t.Fatalf("got %#v, want empty slice", got)
 	}
 }
@@ -91,7 +91,7 @@ func TestFetch_SkipBadElements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch error: %v", err)
 	}
-	want := []IncidentData{
+	want := []m.IncidentData{
 		{Topic: "Billing isn’t allowed in US", Status: "closed"},
 		{Topic: "Wrong SMS delivery time", Status: "active"},
 	}

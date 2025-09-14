@@ -10,23 +10,14 @@ import (
 	"main/config"
 	"main/internal/httpx"
 	"main/internal/jsonx"
-	"main/internal/validateStruct"
+	m "main/internal/model"
 )
-
-type IncidentData struct {
-	Topic  string `json:"topic" validate:"required"`
-	Status string `json:"status" validate:"oneof=active closed"`
-}
 
 // В продакшене передавайте http.Client извне, чтобы реиспользовать пул соединений.
 type Service struct {
 	log    *slog.Logger
 	cfg    *config.CfgApp
 	client *http.Client
-}
-
-func (v IncidentData) Validate() error {
-	return validateStruct.Struct(v)
 }
 
 func NewService(log *slog.Logger, cfg *config.CfgApp, client *http.Client) *Service {
@@ -36,12 +27,12 @@ func NewService(log *slog.Logger, cfg *config.CfgApp, client *http.Client) *Serv
 	return &Service{log: log, cfg: cfg, client: client}
 }
 
-func (s *Service) Fetch(ctx context.Context) ([]IncidentData, error) {
-	decode := func(r io.Reader) ([]IncidentData, error) {
-		return jsonx.DecodeArrayFromReader[IncidentData](r, &jsonx.Options[IncidentData]{})
+func (s *Service) Fetch(ctx context.Context) ([]m.IncidentData, error) {
+	decode := func(r io.Reader) ([]m.IncidentData, error) {
+		return jsonx.DecodeArrayFromReader[m.IncidentData](r, &jsonx.Options[m.IncidentData]{})
 	}
 
-	return httpx.FetchArray[IncidentData](
+	return httpx.FetchArray[m.IncidentData](
 		ctx,
 		s.log,
 		s.client,

@@ -17,11 +17,11 @@ import (
 
 	"main/config"
 
-	"main/incidentdata"
 	"main/internal/model"
 
 	bill "main/billingstat"
 	email "main/emaildata"
+	incident "main/incidentdata"
 	mms "main/mmsdata"
 	sms "main/smsdata"
 	"main/support"
@@ -111,7 +111,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 // -----------------------------------------
-// тип функции, возвращающей слайс данных
+/* тип функции, возвращающей слайс данных
 type sliceFetchFn[T any] func(ctx context.Context) ([]T, error) //это компактный способ описать «контракт» для функций вида “дай мне слайс T по контексту, либо ошибку”, который можно переиспользовать для разных доменных типов.
 
 // общий шаблон: запускает задачу в errgroup, логирует результат и НЕ отменяет соседей при ошибке
@@ -133,7 +133,7 @@ func goFetchSlice[T any](g *errgroup.Group, parentCtx context.Context, logger *s
 		logger.Debug(name+" data:", " ", data)
 		return nil
 	})
-}
+}*/
 
 // run — «бизнес-логика», умеет останавливаться по ctx.Done().
 func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
@@ -148,7 +148,6 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 
 	// 2) конструируем сервисы с контекстным Fetch
 	//svcMms := mms.NewService(logger, cfg, client)
-	svcInc := incidentdata.NewService(logger, cfg, client)
 
 	// 3) errgroup с лимитом параллелизма
 	g, ctx := errgroup.WithContext(ctx)
@@ -182,9 +181,7 @@ func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 	// goFetchSlice(g, ctx, logger, "support", perReqTimeout, func(ctx context.Context) ([]support.SupportData, error) {
 	// 	return svcSupp.Fetch(ctx)
 	// })
-	goFetchSlice(g, ctx, logger, "incident", perReqTimeout, func(ctx context.Context) ([]incidentdata.IncidentData, error) {
-		return svcInc.Fetch(ctx)
-	})
+	incident.GoFetch(g, ctx, logger, perReqTimeout, client, cfg, &rs, &mu)
 
 	// 5) ждём завершения всех «первичных» фетчей
 	_ = g.Wait()

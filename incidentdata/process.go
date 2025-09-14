@@ -1,4 +1,4 @@
-package support
+package incidentdata
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"main/config"
 	m "main/internal/model"
-	"math"
 	"net/http"
 	"sync"
 	"time"
@@ -14,11 +13,11 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type supportFetcher interface {
-	Fetch(ctx context.Context) ([]m.SupportData, error)
+type supportIncidenter interface {
+	Fetch(ctx context.Context) ([]m.IncidentData, error)
 }
 
-var newService = func(logger *slog.Logger, cfg *config.CfgApp, client *http.Client) supportFetcher {
+var newService = func(logger *slog.Logger, cfg *config.CfgApp, client *http.Client) supportIncidenter {
 	return NewService(logger, cfg, client)
 }
 
@@ -52,67 +51,56 @@ func GoFetch(
 		if err != nil {
 			// отличаем отмену от реальной ошибки
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				logger.Info("support cancelled", slog.Duration("dur", time.Since(start)))
+				logger.Info("Incidents cancelled", slog.Duration("dur", time.Since(start)))
 				return nil
 			}
-			logger.Info("support NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+			logger.Info("Incidents NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
 			return nil // не валим группу
 		}
 
 		// перед публикацией ещё раз убеждаемся, что не отменено
 		select {
 		case <-ctx.Done():
-			logger.Info("support cancelled before publish", slog.Duration("dur", time.Since(start)))
+			logger.Info("Incidents cancelled before publish", slog.Duration("dur", time.Since(start)))
 			return nil
 		default:
 		}
 
 		//все что ниже продолжит выполнение как по default
-		sortedData := BuildSortedSupport(nonSortedData)
+		sortedData := BuildSortedIncident(nonSortedData)
 
 		// сохранить результат с защитой от гонок
 		mu.Lock()
-		rs.Support = sortedData
+		rs.Incidents = sortedData
 		mu.Unlock()
 
-		logger.Info("support fetched",
+		logger.Info("Incidents fetched",
 			slog.Duration("dur", time.Since(start)),
 		)
-		logger.Debug("support data:", "loadLevel=", sortedData[0], " waitMinutes=", sortedData[1])
+		logger.Debug("Incidents data:", " ", sortedData)
 		return nil
 	})
 }
 
-// BuildSortedSupport считает интегральную нагрузку саппорта и потенциальное время ожидания.
-// Возвращает []int{loadLevel, waitMinutes}:
-//
-//	loadLevel: 1 (<9 тикетов), 2 (9..16), 3 (>16)
-//	waitMinutes: потенциальное время ожидания ответа на новый тикет (минуты)
-func BuildSortedSupport(data []m.SupportData) []int {
-	const teamThroughputPerHour = 18.0
-	const minutesPerTicket = 60.0 / teamThroughputPerHour // ~3.33 мин/тикет (вся команда)
+// BuildSortedIncident сортирует все инциденты, чтобы все со статусом active оказались наверху списка
+func BuildSortedIncident(data []m.IncidentData) []m.IncidentData {
+	if len(data) == 0 {
+		return nil
+	}
+	out := make([]m.IncidentData, 0, len(data))
 
-	// суммируем только валидные значения
-	totalOpen := 0
+	// сначала активные
 	for _, d := range data {
-		if d.ActiveTickets > 0 {
-			totalOpen += d.ActiveTickets
+		if d.Status == "active" {
+			out = append(out, d)
+		}
+	}
+	// затем все остальные
+	for _, d := range data {
+		if d.Status != "active" {
+			out = append(out, d)
 		}
 	}
 
-	// потенциальное время ожидания
-	waitMinutes := int(math.Ceil(float64(totalOpen) * minutesPerTicket))
-
-	// уровни нагрузки по количеству открытых тикетов
-	loadLevel := 0
-	switch {
-	case totalOpen < 9:
-		loadLevel = 1
-	case totalOpen <= 16:
-		loadLevel = 2
-	default:
-		loadLevel = 3
-	}
-
-	return []int{loadLevel, waitMinutes}
+	return out
 }
