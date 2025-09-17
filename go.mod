@@ -4,6 +4,7 @@ go 1.23.5
 
 require (
 	github.com/go-playground/validator/v10 v10.18.0
+	github.com/gorilla/mux v1.8.1
 	golang.org/x/sync v0.16.0
 )
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"main/internal/fileutil"
 	m "main/internal/model"
-	"main/internal/validateStruct"
+	v "main/internal/validatestruct"
 	"sync"
 	"testing"
 	"time"
@@ -30,7 +30,7 @@ DK;11;743;JustPhone;0.67;82;74;41`
 	fileutil.FileOpener = func(_ string) ([]byte, error) { return []byte(sample), nil }
 
 	// убедимся, что валидаторы подтянулись (как и в fetch_test.go)
-	_ = validateStruct.Struct(struct{}{})
+	_ = v.Struct(struct{}{})
 
 	var (
 		rs m.ResultSetT
@@ -63,7 +63,7 @@ func TestGoFetchVoice_Timeout_BeforePublish(t *testing.T) {
 		return []byte(sample), nil
 	}
 
-	_ = validateStruct.Struct(struct{}{})
+	_ = v.Struct(struct{}{})
 
 	var (
 		rs m.ResultSetT
@@ -92,7 +92,7 @@ func TestGoFetchVoice_FetchError_NoPublish(t *testing.T) {
 		return nil, errors.New("boom")
 	}
 
-	_ = validateStruct.Struct(struct{}{})
+	_ = v.Struct(struct{}{})
 
 	var (
 		rs m.ResultSetT
@@ -121,7 +121,7 @@ func TestGoFetchVoice_ParentContextAlreadyCancelled_NoPublish(t *testing.T) {
 	fileutil.FileOpener = func(_ string) ([]byte, error) { return []byte(sample), nil }
 
 	// Прогреем валидаторы, как в остальных тестах
-	_ = validateStruct.Struct(struct{}{})
+	_ = v.Struct(struct{}{})
 
 	var (
 		rs m.ResultSetT

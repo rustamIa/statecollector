@@ -1,7 +1,7 @@
 package model
 
 import (
-	"main/internal/validateStruct"
+	valid "main/internal/validatestruct"
 )
 
 // структура для SMSData
@@ -14,5 +14,5 @@ type SMSData struct {
 
 // Вызов метода валидации структуры
 func (v SMSData) Validate() error {
-	return validateStruct.Struct(v)
+	return valid.Struct(v)
 }

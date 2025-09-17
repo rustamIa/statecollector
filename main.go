@@ -3,29 +3,16 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"log/slog"
 	"time"
 
-	"golang.org/x/sync/errgroup" //менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
-
+	//менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
 	"main/config"
-
-	"main/internal/model"
-
-	bill "main/billingstat"
-	email "main/emaildata"
-	incident "main/incidentdata"
-	mms "main/mmsdata"
-	sms "main/smsdata"
-	"main/support"
-	voice "main/voicedata"
+	s "main/internal/httpserver"
 )
 
 // LogCfg описывает параметры логирования, которые удобнее всего задавать флагами/ENV.
@@ -77,25 +64,6 @@ func main() {
 	//logger.Debug("logging started")
 	logger.Info("state_Collector starting", slog.String("Version", "1.06"))
 
-	//TODO: добавьте ему обработку адреса “/” на функцию handleConnection
-	/*router := mux.NewRouter()
-
-	// router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	// 	// an example API handler
-	// 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-	// })
-	router.HandleFunc("/", handleConnection)
-
-	srv := &http.Server{
-		Handler: router,
-		Addr:    "127.0.0.1:8282",
-		// Good practice: enforce timeouts for servers you create!
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
-	}
-	res.PrepaireResStub()
-	log.Fatal(srv.ListenAndServe())*/
-
 	// Главная работа сервиса.
 	if err := run(ctx, logger, cfgApp); err != nil {
 		logger.Error("collector failed", slog.Any("err", err))
@@ -104,89 +72,12 @@ func main() {
 	logger.Info("state_Collector stopped")
 }
 
-func handleConnection(w http.ResponseWriter, r *http.Request) {
-	//vars := mux.Vars(r)
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "ok")
-}
-
-// -----------------------------------------
-/* тип функции, возвращающей слайс данных
-type sliceFetchFn[T any] func(ctx context.Context) ([]T, error) //это компактный способ описать «контракт» для функций вида “дай мне слайс T по контексту, либо ошибку”, который можно переиспользовать для разных доменных типов.
-
-// общий шаблон: запускает задачу в errgroup, логирует результат и НЕ отменяет соседей при ошибке
-func goFetchSlice[T any](g *errgroup.Group, parentCtx context.Context, logger *slog.Logger, name string, timeOut time.Duration, fn sliceFetchFn[T]) {
-	g.Go(func() error {
-		ctx, cancel := context.WithTimeout(parentCtx, timeOut)
-		defer cancel()
-
-		start := time.Now()
-		data, err := fn(ctx)
-		if err != nil {
-			logger.Info(name+" NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
-			return nil // важный момент: не «роняем» группу, остальные задачи продолжат работу
-		}
-		logger.Info(name+" fetched",
-			slog.Int("count", len(data)),
-			slog.Duration("dur", time.Since(start)),
-		)
-		logger.Debug(name+" data:", " ", data)
-		return nil
-	})
-}*/
-
 // run — «бизнес-логика», умеет останавливаться по ctx.Done().
-func run(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
-	var (
-		rs model.ResultSetT
-		mu sync.Mutex
-	)
-	parentCtx := ctx // родительский ctx живёт до SIGINT/SIGTERM
+func run(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 
-	// 1) один http.Client на весь процесс (reuse пула соединений)
-	client := &http.Client{Timeout: 5 * time.Second}
+	s.HttpServer(parentCtx, logger, cfg)
 
-	// 2) конструируем сервисы с контекстным Fetch
-	//svcMms := mms.NewService(logger, cfg, client)
-
-	// 3) errgroup с лимитом параллелизма
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(7) // лимит активных горутин -- TODO: или использовать pool?
-
-	perReqTimeout := 3 * time.Second
-
-	// 4) параллельные задачи (каждая – короткая обёртка)
-	sms.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu) //с одной стороны вызов проще, но аргументов уже много - и не особо наглядно
-	// goFetchSlice(g, ctx, logger, "sms", perReqTimeout, func(ctx context.Context) ([]sms.SMSData, error) {
-	// 	return sms.Fetch(logger, cfg)
-	// })
-	voice.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu)
-	// goFetchSlice(g, ctx, logger, "voice", perReqTimeout, func(ctx context.Context) ([]voicedata.VoiceCallData, error) {
-	// 	return voicedata.Fetch(logger, cfg)
-	// })
-
-	email.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu)
-	// goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
-	// 	return emaildata.Fetch(logger, cfg)
-	// })
-
-	mms.GoFetch(g, ctx, logger, perReqTimeout, client, cfg, &rs, &mu)
-	// goFetchSlice(g, ctx, logger, "mms", perReqTimeout, func(ctx context.Context) ([]mms.MMSData, error) {
-	// 	return svcMms.Fetch(ctx)
-	// })
-
-	bill.GoFetch(g, ctx, logger, perReqTimeout, cfg, &rs, &mu)
-
-	support.GoFetch(g, ctx, logger, perReqTimeout, client, cfg, &rs, &mu)
-	// goFetchSlice(g, ctx, logger, "support", perReqTimeout, func(ctx context.Context) ([]support.SupportData, error) {
-	// 	return svcSupp.Fetch(ctx)
-	// })
-	incident.GoFetch(g, ctx, logger, perReqTimeout, client, cfg, &rs, &mu)
-
-	// 5) ждём завершения всех «первичных» фетчей
-	_ = g.Wait()
-
-	// 6) heartbeat + graceful shutdown
+	//heartbeat + graceful shutdown
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 

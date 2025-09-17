@@ -1,7 +1,7 @@
 package model
 
 import (
-	"main/internal/validateStruct"
+	valid "main/internal/validatestruct"
 )
 
 // структура для MMSData
@@ -13,5 +13,5 @@ type MMSData struct {
 }
 
 func (v MMSData) Validate() error {
-	return validateStruct.Struct(v)
+	return valid.Struct(v)
 }

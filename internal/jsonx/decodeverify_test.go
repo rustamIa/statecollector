@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"main/internal/validateStruct"
+	valid "main/internal/validatestruct"
 	"strings"
 	"testing"
 )
@@ -16,7 +16,7 @@ type SupportData struct {
 }
 
 func (v SupportData) Validate() error {
-	return validateStruct.Struct(v)
+	return valid.Struct(v)
 }
 
 // Тип без метода Validate() – проверим ветку ValidateFunc из Options[T].

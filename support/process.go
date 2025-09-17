@@ -56,7 +56,7 @@ func GoFetch(
 				return nil
 			}
 			logger.Info("support NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
-			return nil // не валим группу
+			return nil // не валим группу errgroup, если тут будет err, то завершаться все горутины errgroup
 		}
 
 		// перед публикацией ещё раз убеждаемся, что не отменено

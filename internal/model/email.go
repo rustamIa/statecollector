@@ -1,7 +1,7 @@
 package model
 
 import (
-	"main/internal/validateStruct"
+	"main/internal/validatestruct"
 )
 
 type EmailData struct {
@@ -12,5 +12,5 @@ type EmailData struct {
 
 // Вызов метода валидации структуры
 func (v EmailData) Validate() error {
-	return validateStruct.Struct(v)
+	return validatestruct.Struct(v)
 }

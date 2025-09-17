@@ -83,6 +83,30 @@ func SMSDataSliceToString(data []m.SMSData) string {
 	return b.String()
 }
 
+// -- empty
+func TestGet_SampleFile_empty(t *testing.T) {
+	orig := fileutil.FileOpener
+	defer func() { fileutil.FileOpener = orig }() //мокнули функцию открытия файла
+
+	const sample = ``
+
+	fileutil.FileOpener = func(_ string) ([]byte, error) {
+		return []byte(sample), nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+
+	got, err := Fetch(ctx, testLogger, makeCfg())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	fmt.Println("got =", got)
+	if got == nil {
+		t.Fatalf("result is nil")
+	}
+}
+
 // ---------- основные тесты --------------------------------------------------
 
 func TestGet_TableDriven(t *testing.T) {

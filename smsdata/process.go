@@ -19,7 +19,7 @@ import (
 // контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
 func GoFetch(
 	g *errgroup.Group,
-	parentCtx context.Context,
+	groupCtx context.Context,
 	logger *slog.Logger,
 	timeout time.Duration,
 	cfg *config.CfgApp,
@@ -28,10 +28,10 @@ func GoFetch(
 ) {
 	g.Go(func() error {
 		// таймаут на задачу
-		ctx := parentCtx
+		ctx := groupCtx
 		var cancel context.CancelFunc
 		if timeout > 0 {
-			ctx, cancel = context.WithTimeout(parentCtx, timeout)
+			ctx, cancel = context.WithTimeout(groupCtx, timeout)
 			defer cancel()
 		}
 

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"main/internal/validateStruct"
+	valid "main/internal/validatestruct"
 )
 
 type VoiceCallData struct {
@@ -17,5 +17,5 @@ type VoiceCallData struct {
 
 // Вызов метода валидации структуры
 func (v VoiceCallData) Validate() error {
-	return validateStruct.Struct(v)
+	return valid.Struct(v)
 }

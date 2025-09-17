@@ -1,7 +1,7 @@
 package model
 
 import (
-	"main/internal/validateStruct"
+	valid "main/internal/validatestruct"
 )
 
 type IncidentData struct {
@@ -10,5 +10,5 @@ type IncidentData struct {
 }
 
 func (v IncidentData) Validate() error {
-	return validateStruct.Struct(v)
+	return valid.Struct(v)
 }

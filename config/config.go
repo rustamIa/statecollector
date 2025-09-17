@@ -40,6 +40,7 @@ type CfgApp struct {
 	FileBillingState  string
 	PathSupportData   string
 	PathIncidentData  string
+	HTTPAddr          string
 }
 
 // Load читает ключ-значение вида `key = "value"` или `key = 123`.
@@ -101,6 +102,8 @@ func Load(path string) (*CfgApp, error) {
 			cfgApp.PathSupportData = val
 		case "PathIncidentData":
 			cfgApp.PathIncidentData = val
+		case "HTTPAddr":
+			cfgApp.HTTPAddr = val
 		}
 
 	}

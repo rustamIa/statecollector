@@ -1,4 +1,4 @@
-package validateStruct
+package validatestruct
 
 import (
 	"strconv"

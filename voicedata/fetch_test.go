@@ -12,7 +12,7 @@ import (
 	"main/config"
 	"main/internal/fileutil"
 	m "main/internal/model"
-	"main/internal/validateStruct"
+	v "main/internal/validatestruct"
 )
 
 // no-op-логгер
@@ -211,7 +211,7 @@ CA;8;1059;E-Voice;0.7;100;70;50`,
 			}
 
 			// убедимся, что кастомные валидаторы зарегистрированы (init в пакете validate уже сделал это)
-			_ = validateStruct.Struct(struct{}{}) // no-op, просто дернуть пакет
+			_ = v.Struct(struct{}{}) // no-op, просто дернуть пакет
 
 			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 			defer cancel()
