@@ -4,6 +4,7 @@ package httpserver
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,97 +14,101 @@ import (
 	"time"
 
 	"main/config"
-	"main/internal/model"
+
 	m "main/internal/model"
 )
 
-var SmsTest1 = [][]model.SMSData{
-	{
-		{Country: "US", Bandwidth: "64", ResponseTime: "1923", Provider: "Rond"},
-	},
-	{
-		{Country: "GB", Bandwidth: "88", ResponseTime: "1892", Provider: "Topolo"},
-	},
-	{
-		{Country: "FR", Bandwidth: "61", ResponseTime: "170", Provider: "Topolo"},
-	},
-	{
-		{Country: "BL", Bandwidth: "57", ResponseTime: "267", Provider: "Kildy"},
-	},
-}
-var mmsTest1 = [][]m.MMSData{
-	{
-		{Country: "US", Provider: "Rond", Bandwidth: "36", ResponseTime: "1576"},
-	},
-	{
-		{Country: "GB", Provider: "Kildy", Bandwidth: "85", ResponseTime: "300"},
-	},
-}
-var voiceTest1 = []m.VoiceCallData{
-	{
-		Country:             "RU",
-		Bandwidth:           "86",
-		ResponseTime:        "297",
-		Provider:            "TransparentCalls",
-		ConnectionStability: 0.9,
-		TTFB:                120,
-		VoicePurity:         80,
-		MedianOfCallsTime:   30,
-	},
-	{
-		Country:             "US",
-		Bandwidth:           "64",
-		ResponseTime:        "1923",
-		Provider:            "E-Voice",
-		ConnectionStability: 0.75,
-		TTFB:                200,
-		VoicePurity:         65,
-		MedianOfCallsTime:   45,
-	},
-	{
-		Country:             "GB",
-		Bandwidth:           "88",
-		ResponseTime:        "1892",
-		Provider:            "JustPhone",
-		ConnectionStability: 0.6,
-		TTFB:                150,
-		VoicePurity:         70,
-		MedianOfCallsTime:   50,
-	},
-}
+/*
+	var SmsTest1 = [][]model.SMSData{
+		{
+			{Country: "US", Bandwidth: "64", ResponseTime: "1923", Provider: "Rond"},
+		},
+		{
+			{Country: "GB", Bandwidth: "88", ResponseTime: "1892", Provider: "Topolo"},
+		},
+		{
+			{Country: "FR", Bandwidth: "61", ResponseTime: "170", Provider: "Topolo"},
+		},
+		{
+			{Country: "BL", Bandwidth: "57", ResponseTime: "267", Provider: "Kildy"},
+		},
+	}
 
-var emailTest1 = map[string][][]m.EmailData{
-	"RU": {
+	var mmsTest1 = [][]m.MMSData{
 		{
-			{Country: "RU", Provider: "Gmail", DeliveryTime: 23},
+			{Country: "US", Provider: "Rond", Bandwidth: "36", ResponseTime: "1576"},
 		},
 		{
-			{Country: "RU", Provider: "Yahoo", DeliveryTime: 169},
+			{Country: "GB", Provider: "Kildy", Bandwidth: "85", ResponseTime: "300"},
+		},
+	}
+
+	var voiceTest1 = []m.VoiceCallData{
+		{
+			Country:             "RU",
+			Bandwidth:           "86",
+			ResponseTime:        "297",
+			Provider:            "TransparentCalls",
+			ConnectionStability: 0.9,
+			TTFB:                120,
+			VoicePurity:         80,
+			MedianOfCallsTime:   30,
 		},
 		{
-			{Country: "RU", Provider: "Hotmail", DeliveryTime: 63},
+			Country:             "US",
+			Bandwidth:           "64",
+			ResponseTime:        "1923",
+			Provider:            "E-Voice",
+			ConnectionStability: 0.75,
+			TTFB:                200,
+			VoicePurity:         65,
+			MedianOfCallsTime:   45,
 		},
 		{
-			{Country: "RU", Provider: "MSN", DeliveryTime: 475},
+			Country:             "GB",
+			Bandwidth:           "88",
+			ResponseTime:        "1892",
+			Provider:            "JustPhone",
+			ConnectionStability: 0.6,
+			TTFB:                150,
+			VoicePurity:         70,
+			MedianOfCallsTime:   50,
 		},
-		{
-			{Country: "RU", Provider: "Orange", DeliveryTime: 519},
+	}
+
+	var emailTest1 = map[string][][]m.EmailData{
+		"RU": {
+			{
+				{Country: "RU", Provider: "Gmail", DeliveryTime: 23},
+			},
+			{
+				{Country: "RU", Provider: "Yahoo", DeliveryTime: 169},
+			},
+			{
+				{Country: "RU", Provider: "Hotmail", DeliveryTime: 63},
+			},
+			{
+				{Country: "RU", Provider: "MSN", DeliveryTime: 475},
+			},
+			{
+				{Country: "RU", Provider: "Orange", DeliveryTime: 519},
+			},
+			{
+				{Country: "RU", Provider: "Comcast", DeliveryTime: 408},
+			},
+			{
+				{Country: "RU", Provider: "AOL", DeliveryTime: 254},
+			},
+			{
+				{Country: "RU", Provider: "GMX", DeliveryTime: 246},
+			},
 		},
-		{
-			{Country: "RU", Provider: "Comcast", DeliveryTime: 408},
-		},
-		{
-			{Country: "RU", Provider: "AOL", DeliveryTime: 254},
-		},
-		{
-			{Country: "RU", Provider: "GMX", DeliveryTime: 246},
-		},
-	},
-}
+	}
+
 var billTest1 = m.BillingData{CreateCustomer: true, Purchase: false, Payout: true, Recurring: false, FraudControl: true, CheckoutPage: false}
 var suppTest1 = m.SupportData{Topic: "issue of everything", ActiveTickets: 1}
 var incidTest1 = m.IncidentData{Topic: "boom", Status: "active"}
-
+*/
 func nonZeroBilling() m.BillingData {
 	return m.BillingData{CreateCustomer: true,
 		Purchase:     true,
@@ -188,9 +193,9 @@ func TestHttpServer_GracefulShutdown(t *testing.T) {
 	// Мокаем fetch, чтобы хендлер «подумал»
 	orig := fetch
 	t.Cleanup(func() { fetch = orig })
-	fetch = func(ctx context.Context, _ *slog.Logger, _ *config.CfgApp) (model.ResultSetT, model.ResultT) {
+	fetch = func(ctx context.Context, _ *slog.Logger, _ *config.CfgApp) (m.ResultSetT, m.ResultT) {
 		time.Sleep(100 * time.Millisecond)
-		return model.ResultSetT{}, model.ResultT{}
+		return m.ResultSetT{}, m.ResultT{}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -203,7 +208,8 @@ func TestHttpServer_GracefulShutdown(t *testing.T) {
 	addr := "http://" + ln.Addr().String() + "/"
 
 	done := make(chan error, 1)
-	go func() { done <- serveOnListener(ctx, nil, &config.CfgApp{}, ln) }()
+	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
+	go func() { done <- serveOnListener(ctx, logger, &config.CfgApp{}, ln) }()
 
 	// Запускаем запрос
 	client := &http.Client{}

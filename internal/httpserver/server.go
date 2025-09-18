@@ -10,6 +10,7 @@ import (
 	"main/sl"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	res "main/internal/mainfetcher"
@@ -22,9 +23,69 @@ import (
 
 type resultGetter func(context.Context, *slog.Logger, *config.CfgApp) (model.ResultSetT, model.ResultT)
 
+// --- КЭШ ---
+
+const cacheTTL = 10 * time.Second
+
+var (
+	cacheMu     sync.RWMutex
+	cacheRS     model.ResultSetT
+	cacheR      model.ResultT
+	cacheExp    time.Time
+	cleanerOnce sync.Once
+)
+
+// чистильщик кэша по тикеру; привязан к parentCtx, чтобы не течь
+func startCacheCleaner(ctx context.Context) {
+	cleanerOnce.Do(func() { //вложенная функция выполнится ровно один раз за весь жизненный цикл процесса, даже если startCacheCleaner вызовут многократно
+		t := time.NewTicker(cacheTTL) //шлёт «тики» в свой канал t.C каждые cacheTTL
+		go func() {
+			defer t.Stop()
+			for {
+				select {
+				case <-t.C:
+					cacheMu.Lock()
+					cacheRS = model.ResultSetT{}
+					cacheR = model.ResultT{}
+					cacheExp = time.Time{}
+					cacheMu.Unlock()
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	})
+}
+
 // реализация через обёртку, чтобы спрятать varargs  custom ...fetcher и чужой тип
+// var fetch resultGetter = func(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) (model.ResultSetT, model.ResultT) {
+// 	return res.GetResultData(ctx, logger, cfg) // varargs нам тут не нужны
+// }
+
 var fetch resultGetter = func(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) (model.ResultSetT, model.ResultT) {
-	return res.GetResultData(ctx, logger, cfg) // varargs нам тут не нужны
+	now := time.Now()
+	cacheMu.RLock() //разрешает параллельные чтения кэша и блокирует писателей (те, кто делает Lock()).
+
+	if !cacheExp.IsZero() && now.Before(cacheExp) {
+		// проверяем, «валиден ли кэш»:
+		//cacheExp.IsZero() — истина, когда срок годности не установлен (нулевое time.Time), значит кэша ещё нет. Мы хотим обратное, поэтому !….
+		//now.Before(cacheExp) — текущее время (now взято ранее как time.Now()) всё ещё раньше времени истечения.
+
+		rs, r := cacheRS, cacheR //копируем значения из глобальных кэшей в локальные переменные
+		cacheMu.RUnlock()        // важно: освободили перед тяжёлой GetResultData и перед Lock()
+		return rs, r
+	}
+	cacheMu.RUnlock() // важно: освободили перед тяжёлой GetResultData и перед Lock()
+
+	// нет валидного кэша — собираем заново
+	rs, r := res.GetResultData(ctx, logger, cfg)
+
+	cacheMu.Lock()
+	cacheRS, cacheR = rs, r
+	cacheExp = time.Now().Add(cacheTTL)
+	cacheMu.Unlock()
+
+	return rs, r
 }
 
 // HttpServer вызывает serveOnListener для возможности тестов с подменой serveOnListener
@@ -37,6 +98,8 @@ func HttpServer(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgA
 }
 
 func serveOnListener(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgApp, ln net.Listener) error {
+	startCacheCleaner(parentCtx)
+
 	router := mux.NewRouter()
 	// один обработчик для "/"
 	router.HandleFunc("/", makeHandleConnection(logger, cfg)).Methods(http.MethodGet)

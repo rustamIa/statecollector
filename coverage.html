@@ -1,0 +1,3040 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>billingstat: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">main/billingstat/fetch.go (95.1%)</option>
+				
+				<option value="file1">main/billingstat/process.go (100.0%)</option>
+				
+				<option value="file2">main/config/config.go (0.0%)</option>
+				
+				<option value="file3">main/emaildata/fetch.go (85.0%)</option>
+				
+				<option value="file4">main/emaildata/process.go (96.7%)</option>
+				
+				<option value="file5">main/incidentdata/fetch.go (83.3%)</option>
+				
+				<option value="file6">main/incidentdata/process.go (97.2%)</option>
+				
+				<option value="file7">main/internal/alpha2/countries.go (0.0%)</option>
+				
+				<option value="file8">main/internal/fileutil/openfile.go (77.8%)</option>
+				
+				<option value="file9">main/internal/httpserver/server.go (69.4%)</option>
+				
+				<option value="file10">main/internal/httpx/fetch.go (91.3%)</option>
+				
+				<option value="file11">main/internal/jsonx/decodeverify.go (85.4%)</option>
+				
+				<option value="file12">main/internal/mainfetcher/mainfetcher.go (75.4%)</option>
+				
+				<option value="file13">main/internal/model/email.go (0.0%)</option>
+				
+				<option value="file14">main/internal/model/incident.go (0.0%)</option>
+				
+				<option value="file15">main/internal/model/mms.go (0.0%)</option>
+				
+				<option value="file16">main/internal/model/sms.go (0.0%)</option>
+				
+				<option value="file17">main/internal/model/support.go (0.0%)</option>
+				
+				<option value="file18">main/internal/model/voice.go (0.0%)</option>
+				
+				<option value="file19">main/internal/textutil/split.go (94.4%)</option>
+				
+				<option value="file20">main/internal/validatestruct/validate.go (55.6%)</option>
+				
+				<option value="file21">main/main.go (0.0%)</option>
+				
+				<option value="file22">main/mmsdata/fetch.go (83.3%)</option>
+				
+				<option value="file23">main/mmsdata/process.go (31.7%)</option>
+				
+				<option value="file24">main/sl/sl.go (0.0%)</option>
+				
+				<option value="file25">main/smsdata/fetch.go (82.4%)</option>
+				
+				<option value="file26">main/smsdata/process.go (32.5%)</option>
+				
+				<option value="file27">main/support/fetch.go (83.3%)</option>
+				
+				<option value="file28">main/support/process.go (92.3%)</option>
+				
+				<option value="file29">main/voicedata/fetch.go (96.6%)</option>
+				
+				<option value="file30">main/voicedata/process.go (91.3%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package billingstat
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "main/config"
+        "main/internal/fileutil"
+        m "main/internal/model"
+        "main/sl"
+        "reflect"
+)
+
+//go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=readfile
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) (m.BillingData, error) <span class="cov8" title="1">{
+
+        // файл c voice
+        path := cfg.FileBillingState
+        rf, err := fileutil.FileOpener(path)
+        bd := &amp;m.BillingData{}
+
+        if err != nil </span><span class="cov8" title="1">{
+                logger.Error("Error by opening file "+path, sl.Err(err))
+                return *bd, err
+        }</span>
+
+        /*Почему останавливаемся тут
+        Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+        Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+        */
+        <span class="cov8" title="1">if err := ctx.Err(); err != nil </span><span class="cov0" title="0">{
+                return *bd, err
+        }</span>
+
+        <span class="cov8" title="1">err = decodeBinaryState(rf, bd)
+        if err != nil </span><span class="cov8" title="1">{
+                logger.Error("Error by decoding Billing binary state", sl.Err(err))
+                return *bd, err
+        }</span>
+
+        <span class="cov8" title="1">return *bd, nil</span>
+}
+
+func decodeBinaryState(txt []byte, bd *m.BillingData) (err error) <span class="cov8" title="1">{
+        if len(txt) == 0 </span><span class="cov8" title="1">{
+                err := fmt.Errorf("empty file")
+                return err
+        }</span>
+
+        <span class="cov8" title="1">sd, err := getStateDec(txt)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov8" title="1">bd.CreateCustomer = (sd &amp; 1) != 0 //1-й бит
+        bd.Purchase = (sd &amp; 2) != 0       //2-й бит
+        bd.Payout = (sd &amp; 4) != 0         //3-й бит
+        bd.Recurring = (sd &amp; 8) != 0      //4-й бит
+        bd.FraudControl = (sd &amp; 16) != 0  //5-й бит
+        bd.CheckoutPage = (sd &amp; 32) != 0  //6-й бит
+
+        return nil</span>
+}
+
+func byteToBool(b byte) (bool, error) <span class="cov8" title="1">{
+        switch b </span>{
+        case '1':<span class="cov8" title="1">
+                return true, nil</span>
+        case '0':<span class="cov8" title="1">
+                return false, nil</span>
+        default:<span class="cov8" title="1">
+                // Обработка ошибки для некорректных значений
+                return false, fmt.Errorf("error by converting string state to bool: invalid byte '%c'", b)</span>
+        }
+}
+
+// Функция для возведения 2 в степень
+func powerOfTwo(exp int) uint8 <span class="cov8" title="1">{
+        return 1 &lt;&lt; exp // сдвиг на exp бит влево
+}</span>
+
+func getStateDec(s []byte) (dec uint8, err error) <span class="cov8" title="1">{
+        quanBits := reflect.TypeOf(m.BillingData{}).NumField() //по заданию полей 6. а можно задать так: bdType := reflect.TypeOf(m.BillingData{}) numFields := bdType.NumField()
+
+        j := 0
+
+        for i := quanBits - 1; i &gt;= 0; i-- </span><span class="cov8" title="1">{
+
+                b, err := byteToBool(s[i])
+
+                if err != nil </span><span class="cov8" title="1">{
+                        return dec, err
+                }</span>
+
+                <span class="cov8" title="1">if b </span><span class="cov8" title="1">{
+                        dec += powerOfTwo(j)
+                }</span>
+                <span class="cov8" title="1">j++</span>
+        }
+        <span class="cov8" title="1">return dec, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package billingstat
+
+import (
+        "context"
+        "errors"
+        "log/slog"
+        "main/config"
+        m "main/internal/model"
+        "sync"
+        "time"
+
+        "golang.org/x/sync/errgroup"
+)
+
+var fetchBills = Fetch //чтобы мокнуть ф-ию в тестах
+
+// аналог для «неслайсовых» результатов (например, сводка/структура)
+func GoFetch(
+        g *errgroup.Group,
+        parentCtx context.Context,
+        logger *slog.Logger,
+        timeout time.Duration,
+        cfg *config.CfgApp,
+        rs *m.ResultSetT,
+        mu *sync.Mutex,
+) <span class="cov8" title="1">{
+        g.Go(func() error </span><span class="cov8" title="1">{
+                ctx := parentCtx
+                var cancel context.CancelFunc
+                if timeout &gt; 0 </span><span class="cov8" title="1">{
+                        ctx, cancel = context.WithTimeout(parentCtx, timeout)
+                        defer cancel()
+                }</span>
+
+                <span class="cov8" title="1">start := time.Now()
+                data, err := fetchBills(ctx, logger, cfg)
+
+                if err != nil </span><span class="cov8" title="1">{
+                        // отличаем отмену от реальной ошибки
+                        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) </span><span class="cov8" title="1">{
+                                logger.Info("billing cancelled", slog.Duration("dur", time.Since(start)))
+                                return nil
+                        }</span>
+                        <span class="cov8" title="1">logger.Info("billing NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil</span> // не валим группу
+                }
+
+                // перед публикацией ещё раз убеждаемся, что не отменено
+                <span class="cov8" title="1">select </span>{
+                case &lt;-ctx.Done():<span class="cov8" title="1">
+                        logger.Info("billing cancelled before publish", slog.Duration("dur", time.Since(start)))
+                        return nil</span>
+                default:<span class="cov8" title="1"></span>
+                }
+
+                // сохранить результат с защитой от гонок
+                <span class="cov8" title="1">mu.Lock()
+                rs.Billing = data
+                mu.Unlock()
+
+                logger.Info("billing fetched",
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug("billing data:", " ", data)
+                return nil</span>
+
+                // if err != nil {
+                //         logger.Info(name+" NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                //         return nil
+                // }
+                // logger.Info(name+" fetched", slog.Duration("dur", time.Since(start)))
+                // logger.Debug(name+" data:", " ", val)
+                // return nil
+        })
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package config
+
+/*var (
+        //Config: read SMS data
+        FileSms         = "sms.data"
+
+        //кол-во колонок в таблице смс
+        QuantSMSDataCol = 4
+
+        //Config: read MMS data
+        PathMmsData = "http://127.0.0.1:8383/mms"
+)
+*/
+
+import (
+        "bufio"
+        "fmt"
+        "os"
+        "strconv"
+        "strings"
+)
+
+// Глобальные переменные, которые будут заполнены из файла.
+/*var (
+        FileSms           string
+        QuantSMSDataCol   int
+        PathMmsData       string
+        FileVoiceCall     string
+        QuantVoiceDataCol int
+)*/
+
+type CfgApp struct {
+        FileSms           string
+        QuantSMSDataCol   int
+        PathMmsData       string
+        FileVoiceCall     string
+        QuantVoiceDataCol int
+        FileEmail         string
+        QuantEmailDataCol int
+        FileBillingState  string
+        PathSupportData   string
+        PathIncidentData  string
+        HTTPAddr          string
+}
+
+// Load читает ключ-значение вида `key = "value"` или `key = 123`.
+// Комментарии начинающиеся с `//` и пустые строки пропускаются.
+func Load(path string) (*CfgApp, error) <span class="cov0" title="0">{
+        cfgApp := &amp;CfgApp{}
+        f, err := os.Open(path)
+        if err != nil </span><span class="cov0" title="0">{
+                return cfgApp, fmt.Errorf("open config: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer f.Close()
+
+        sc := bufio.NewScanner(f)
+        for sc.Scan() </span><span class="cov0" title="0">{
+                line := strings.TrimSpace(sc.Text())
+                if line == "" || strings.HasPrefix(line, "//") </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">i := strings.Index(line, "=")
+                if i == -1 </span><span class="cov0" title="0">{
+                        continue</span> // или вернуть ошибку «некорректная строка»
+                }
+                <span class="cov0" title="0">key := strings.TrimSpace(line[:i])
+                val := strings.TrimSpace(line[i+1:])
+                // убираем возможные кавычки
+                val = strings.Trim(val, `"'`)
+
+                switch key </span>{
+                case "FileSms":<span class="cov0" title="0">
+                        cfgApp.FileSms = val</span>
+                case "QuantSMSDataCol":<span class="cov0" title="0">
+                        n, err := strconv.Atoi(val)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return cfgApp, fmt.Errorf("QuantSMSDataCol: %w", err)
+                        }</span>
+                        <span class="cov0" title="0">cfgApp.QuantSMSDataCol = n</span>
+                case "PathMmsData":<span class="cov0" title="0">
+                        cfgApp.PathMmsData = val</span>
+                case "FileVoice":<span class="cov0" title="0">
+                        cfgApp.FileVoiceCall = val</span>
+                case "QuantVoiceDataCol":<span class="cov0" title="0">
+                        n, err := strconv.Atoi(val)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return cfgApp, fmt.Errorf("QuantVoiceDataCol: %w", err)
+                        }</span>
+                        <span class="cov0" title="0">cfgApp.QuantVoiceDataCol = n</span>
+                case "FileEmail":<span class="cov0" title="0">
+                        cfgApp.FileEmail = val</span>
+                case "QuantEmailDataCol":<span class="cov0" title="0">
+                        n, err := strconv.Atoi(val)
+                        if err != nil </span><span class="cov0" title="0">{
+                                return cfgApp, fmt.Errorf("QuantEmailDataCol: %w", err)
+                        }</span>
+                        <span class="cov0" title="0">cfgApp.QuantEmailDataCol = n</span>
+                case "FileBillingState":<span class="cov0" title="0">
+                        cfgApp.FileBillingState = val</span>
+                case "PathSupportData":<span class="cov0" title="0">
+                        cfgApp.PathSupportData = val</span>
+                case "PathIncidentData":<span class="cov0" title="0">
+                        cfgApp.PathIncidentData = val</span>
+                case "HTTPAddr":<span class="cov0" title="0">
+                        cfgApp.HTTPAddr = val</span>
+                }
+
+        }
+        <span class="cov0" title="0">if err := sc.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("scan config: %w", err)
+        }</span>
+        <span class="cov0" title="0">return cfgApp, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package emaildata
+
+import (
+        "context"
+        "log/slog"
+        "main/config"
+        "main/internal/fileutil"
+        m "main/internal/model"
+        "main/internal/textutil"
+        "main/sl"
+        "strconv"
+        "strings"
+)
+
+/*
+Считываем Email.data file
+проверка строк на соответствие:
+        4. Каждая строка должна содержать 3 полей (alpha-2 код страны, провайдер, стабильность
+        соединения). Строки        содержащие отличное количество полей не должны попадать в результат
+        работы функции.
+        5. Некоторые строки могут быть повреждены, их нужно пропускать и не
+        записывать в результат выполнения функции
+        6. В результат допускаются только страны прошедшие проверку на
+        существование по alpha-2 коду.
+        7. В результат допускаются только корректные провайдеры. Все некорректные
+        провайдеры нужно пропускать и не добавлять в результат работы
+        функции
+        8. Строки в которых меньше 3-х полей данных не допускаются
+        9. Все целочисленные данные должны быть приведены к типу int
+*/
+
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) ([]m.EmailData, error) <span class="cov8" title="1">{
+
+        // файл c voice
+        path := cfg.FileEmail
+
+        rf, err := fileutil.FileOpener(path)
+
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Error("Error by opening file "+path, sl.Err(err))
+                return nil, err
+        }</span>
+
+        /*Почему останавливаемся тут
+        Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+        Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+        */
+        <span class="cov8" title="1">if err := ctx.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        //преобразовать байты в массив строк, разделитель новая строка, затем разделитель ;
+        <span class="cov8" title="1">lines := strings.Split(string(rf), "\n")
+
+        out := make([]m.EmailData, 0, len(lines)) //данные будут срезе, len = , cap =        //так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
+
+        for _, line := range lines </span><span class="cov8" title="1">{
+                splitted, ok := textutil.SplitN(line, ';', cfg.QuantEmailDataCol) //критерий 5,8 //перешли на более дешевый метод SplitN.
+                if !ok </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">DeliveryTime, err := strconv.Atoi(splitted[2])
+                //проверка на соответствие критерия 9 - поле не цифра
+                if err != nil </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                //заполняем структуру провайдера
+                <span class="cov8" title="1">e := m.EmailData{
+                        Country:      splitted[0],
+                        Provider:     splitted[1],
+                        DeliveryTime: DeliveryTime,
+                }
+
+                if err := e.Validate(); err == nil </span><span class="cov8" title="1">{ //проверка на соответствие критериям 4, 6, 7
+                        out = append(out, e)
+                }</span>
+
+        }
+        <span class="cov8" title="1">return out, nil</span>
+
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package emaildata
+
+import (
+        "context"
+        "errors"
+        "log/slog"
+        "main/config"
+        m "main/internal/model"
+        "math"
+        "slices"
+        "strings"
+        "sync"
+        "time"
+
+        "golang.org/x/sync/errgroup"
+)
+
+var fetchEmails = Fetch
+
+// для примера сделан отдельный goFetch - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
+// контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
+func GoFetch(
+        g *errgroup.Group,
+        parentCtx context.Context,
+        logger *slog.Logger,
+        timeout time.Duration,
+        cfg *config.CfgApp,
+        rs *m.ResultSetT,
+        mu *sync.Mutex,
+) <span class="cov8" title="1">{
+        g.Go(func() error </span><span class="cov8" title="1">{
+                // таймаут на задачу
+                ctx := parentCtx
+                var cancel context.CancelFunc
+                if timeout &gt; 0 </span><span class="cov8" title="1">{
+                        ctx, cancel = context.WithTimeout(parentCtx, timeout)
+                        defer cancel()
+                }</span>
+
+                <span class="cov8" title="1">start := time.Now()
+
+                nonSortedData, err := fetchEmails(ctx, logger, cfg)
+                if err != nil </span><span class="cov8" title="1">{
+                        // отличаем отмену от реальной ошибки
+                        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) </span><span class="cov0" title="0">{
+                                logger.Info("email cancelled", slog.Duration("dur", time.Since(start)))
+                                return nil
+                        }</span>
+                        <span class="cov8" title="1">logger.Info("email NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil</span> // не валим группу
+                }
+
+                // перед публикацией ещё раз убеждаемся, что не отменено
+                <span class="cov8" title="1">select </span>{
+                case &lt;-ctx.Done():<span class="cov8" title="1">
+                        logger.Info("email cancelled before publish", slog.Duration("dur", time.Since(start)))
+                        return nil</span>
+                default:<span class="cov8" title="1"></span>
+                }
+                //все что ниже продолжит выполнение как по default
+                <span class="cov8" title="1">sortedData := BuildSortedEmails(nonSortedData)
+
+                // сохранить результат с защитой от гонок
+                mu.Lock()
+                rs.Email = sortedData
+                mu.Unlock()
+
+                // посчитать реальное количество строк во всех под-срезах
+                total := 0
+                for _, part := range sortedData </span><span class="cov8" title="1">{
+                        total += len(part)
+                }</span>
+
+                <span class="cov8" title="1">logger.Info("email fetched",
+                        slog.Int("count", total),
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug("email data:", " ", sortedData)
+                return nil</span>
+        })
+}
+
+// BuildSortedEmails группирует по стране и провайдеру, считает средний DeliveryTime,
+// и для каждой страны возвращает [0] — топ-3 самых быстрых, [1] — топ-3 самых медленных.
+func BuildSortedEmails(in []m.EmailData) map[string][][]m.EmailData <span class="cov8" title="1">{
+        // country -&gt; provider -&gt; (sum, count)
+        type agg struct {
+                sum   int
+                count int
+        }
+
+        byCountryProv := make(map[string]map[string]agg, 64)
+
+        for _, e := range in </span><span class="cov8" title="1">{
+                c := strings.ToUpper(strings.TrimSpace(e.Country)) // в Fetch уже валидация alpha-2, просто нормализуем регистр
+                if _, ok := byCountryProv[c]; !ok </span><span class="cov8" title="1">{                //проверяем, есть ли уже внутренняя карта для страны c
+                        byCountryProv[c] = make(map[string]agg, 8)
+                }</span>
+                <span class="cov8" title="1">a := byCountryProv[c][e.Provider] //если ключа e.Provider ещё нет, индексирование карты возвращает нулевое значение типа agg, т.е. agg{sum:0, count:0}
+                a.sum += e.DeliveryTime
+                a.count++
+                byCountryProv[c][e.Provider] = a</span>
+        }
+
+        <span class="cov8" title="1">out := make(map[string][][]m.EmailData, len(byCountryProv))
+
+        for country, provAgg := range byCountryProv </span><span class="cov8" title="1">{
+                // Собираем усреднённые записи по провайдерам этой страны
+                avgList := make([]m.EmailData, 0, len(provAgg))
+                for provider, a := range provAgg </span><span class="cov8" title="1">{
+                        avg := int(math.Round(float64(a.sum) / float64(a.count)))
+                        avgList = append(avgList, m.EmailData{
+                                Country:      country,
+                                Provider:     provider,
+                                DeliveryTime: avg,
+                        })
+                }</span>
+
+                // Сортируем по среднему времени (меньше = быстрее), при равенстве — по имени провайдера
+                <span class="cov8" title="1">slices.SortStableFunc(avgList, func(a, b m.EmailData) int </span><span class="cov8" title="1">{ //странная ф-ия сортировки
+                        if a.DeliveryTime &lt; b.DeliveryTime </span><span class="cov8" title="1">{
+                                return -1
+                        }</span>
+                        <span class="cov8" title="1">if a.DeliveryTime &gt; b.DeliveryTime </span><span class="cov8" title="1">{
+                                return 1
+                        }</span>
+                        <span class="cov8" title="1">return strings.Compare(a.Provider, b.Provider)</span>
+                })
+
+                // Топ-3 быстрых
+                <span class="cov8" title="1">n := 3
+                if len(avgList) &lt; n </span><span class="cov8" title="1">{
+                        n = len(avgList)
+                }</span>
+                <span class="cov8" title="1">fast := make([]m.EmailData, n)
+                copy(fast, avgList[:n])
+
+                // Топ-3 медленных (с конца)
+                mn := 3
+                if len(avgList) &lt; mn </span><span class="cov8" title="1">{
+                        mn = len(avgList)
+                }</span>
+                <span class="cov8" title="1">slow := make([]m.EmailData, mn)
+                // Берём последние mn по возрастанию -&gt; это самые медленные
+                copy(slow, avgList[len(avgList)-mn:])
+
+                out[country] = [][]m.EmailData{fast, slow}</span>
+        }
+
+        <span class="cov8" title="1">return out</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package incidentdata
+
+import (
+        "context"
+        "io"
+        "net/http"
+        "time"
+
+        "log/slog"
+        "main/config"
+        "main/internal/httpx"
+        "main/internal/jsonx"
+        m "main/internal/model"
+)
+
+// В продакшене передавайте http.Client извне, чтобы реиспользовать пул соединений.
+type Service struct {
+        log    *slog.Logger
+        cfg    *config.CfgApp
+        client *http.Client
+}
+
+func NewService(log *slog.Logger, cfg *config.CfgApp, client *http.Client) *Service <span class="cov8" title="1">{
+        if client == nil </span><span class="cov0" title="0">{
+                client = &amp;http.Client{Timeout: 5 * time.Second}
+        }</span>
+        <span class="cov8" title="1">return &amp;Service{log: log, cfg: cfg, client: client}</span>
+}
+
+func (s *Service) Fetch(ctx context.Context) ([]m.IncidentData, error) <span class="cov8" title="1">{
+        decode := func(r io.Reader) ([]m.IncidentData, error) </span><span class="cov8" title="1">{
+                return jsonx.DecodeArrayFromReader[m.IncidentData](r, &amp;jsonx.Options[m.IncidentData]{})
+        }</span>
+
+        <span class="cov8" title="1">return httpx.FetchArray[m.IncidentData](
+                ctx,
+                s.log,
+                s.client,
+                s.cfg.PathIncidentData,
+                decode,
+                "incidentdata.Fetch",
+        )</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package incidentdata
+
+import (
+        "context"
+        "errors"
+        "log/slog"
+        "main/config"
+        m "main/internal/model"
+        "net/http"
+        "sync"
+        "time"
+
+        "golang.org/x/sync/errgroup"
+)
+
+type supportIncidenter interface {
+        Fetch(ctx context.Context) ([]m.IncidentData, error)
+}
+
+var newService = func(logger *slog.Logger, cfg *config.CfgApp, client *http.Client) supportIncidenter <span class="cov0" title="0">{
+        return NewService(logger, cfg, client)
+}</span>
+
+// для примера сделан отдельный goFetch - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
+// контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
+func GoFetch(
+        g *errgroup.Group,
+        parentCtx context.Context,
+        logger *slog.Logger,
+        timeout time.Duration,
+        client *http.Client,
+        cfg *config.CfgApp,
+        rs *m.ResultSetT,
+        mu *sync.Mutex,
+) <span class="cov8" title="1">{
+
+        g.Go(func() error </span><span class="cov8" title="1">{
+                // таймаут на задачу
+                ctx := parentCtx
+                var cancel context.CancelFunc
+                if timeout &gt; 0 </span><span class="cov8" title="1">{
+                        ctx, cancel = context.WithTimeout(parentCtx, timeout)
+                        defer cancel()
+                }</span>
+
+                <span class="cov8" title="1">start := time.Now()
+
+                s := newService(logger, cfg, client) // будем мокать, поэтому через интерфейс
+
+                nonSortedData, err := s.Fetch(ctx)
+                if err != nil </span><span class="cov8" title="1">{
+                        // отличаем отмену от реальной ошибки
+                        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) </span><span class="cov8" title="1">{
+                                logger.Info("Incidents cancelled", slog.Duration("dur", time.Since(start)))
+                                return nil
+                        }</span>
+                        <span class="cov8" title="1">logger.Info("Incidents NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil</span> // не валим группу
+                }
+
+                // перед публикацией ещё раз убеждаемся, что не отменено
+                <span class="cov8" title="1">select </span>{
+                case &lt;-ctx.Done():<span class="cov8" title="1">
+                        logger.Info("Incidents cancelled before publish", slog.Duration("dur", time.Since(start)))
+                        return nil</span>
+                default:<span class="cov8" title="1"></span>
+                }
+
+                //все что ниже продолжит выполнение как по default
+                <span class="cov8" title="1">sortedData := BuildSortedIncident(nonSortedData)
+
+                // сохранить результат с защитой от гонок
+                mu.Lock()
+                rs.Incidents = sortedData
+                mu.Unlock()
+
+                logger.Info("Incidents fetched",
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug("Incidents data:", " ", sortedData)
+                return nil</span>
+        })
+}
+
+// BuildSortedIncident сортирует все инциденты, чтобы все со статусом active оказались наверху списка
+func BuildSortedIncident(data []m.IncidentData) []m.IncidentData <span class="cov8" title="1">{
+        if len(data) == 0 </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+        <span class="cov8" title="1">out := make([]m.IncidentData, 0, len(data))
+
+        // сначала активные
+        for _, d := range data </span><span class="cov8" title="1">{
+                if d.Status == "active" </span><span class="cov8" title="1">{
+                        out = append(out, d)
+                }</span>
+        }
+        // затем все остальные
+        <span class="cov8" title="1">for _, d := range data </span><span class="cov8" title="1">{
+                if d.Status != "active" </span><span class="cov8" title="1">{
+                        out = append(out, d)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return out</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package alpha2
+
+import "strings"
+
+func CountryName(alpha2 string) string <span class="cov0" title="0">{
+        if n, ok := CountryNames[strings.ToUpper(strings.TrimSpace(alpha2))]; ok </span><span class="cov0" title="0">{
+                return n
+        }</span>
+        <span class="cov0" title="0">return alpha2</span>
+}
+
+// --- справочник стран (alpha-2 → полное название) и хелпер ---
+var CountryNames = map[string]string{
+        "AD": "Andorra",
+        "AE": "United Arab Emirates",
+        "AF": "Afghanistan",
+        "AG": "Antigua and Barbuda",
+        "AI": "Anguilla",
+        "AL": "Albania",
+        "AM": "Armenia",
+        "AO": "Angola",
+        "AQ": "Antarctica",
+        "AR": "Argentina",
+        "AS": "American Samoa",
+        "AT": "Austria",
+        "AU": "Australia",
+        "AW": "Aruba",
+        "AX": "Aland Islands",
+        "AZ": "Azerbaijan",
+
+        "BA": "Bosnia and Herzegovina",
+        "BB": "Barbados",
+        "BD": "Bangladesh",
+        "BE": "Belgium",
+        "BF": "Burkina Faso",
+        "BG": "Bulgaria",
+        "BH": "Bahrain",
+        "BI": "Burundi",
+        "BJ": "Benin",
+        "BL": "Saint Barthelemy",
+        "BM": "Bermuda",
+        "BN": "Brunei",
+        "BO": "Bolivia",
+        "BQ": "Bonaire, Sint Eustatius and Saba",
+        "BR": "Brazil",
+        "BS": "Bahamas",
+        "BT": "Bhutan",
+        "BV": "Bouvet Island",
+        "BW": "Botswana",
+        "BY": "Belarus",
+        "BZ": "Belize",
+
+        "CA": "Canada",
+        "CC": "Cocos (Keeling) Islands",
+        "CD": "Congo (DRC)",
+        "CF": "Central African Republic",
+        "CG": "Congo",
+        "CH": "Switzerland",
+        "CI": "Cote d'Ivoire",
+        "CK": "Cook Islands",
+        "CL": "Chile",
+        "CM": "Cameroon",
+        "CN": "China",
+        "CO": "Colombia",
+        "CR": "Costa Rica",
+        "CU": "Cuba",
+        "CV": "Cabo Verde",
+        "CW": "Curacao",
+        "CX": "Christmas Island",
+        "CY": "Cyprus",
+        "CZ": "Czechia",
+
+        "DE": "Germany",
+        "DJ": "Djibouti",
+        "DK": "Denmark",
+        "DM": "Dominica",
+        "DO": "Dominican Republic",
+        "DZ": "Algeria",
+
+        "EC": "Ecuador",
+        "EE": "Estonia",
+        "EG": "Egypt",
+        "EH": "Western Sahara",
+        "ER": "Eritrea",
+        "ES": "Spain",
+        "ET": "Ethiopia",
+
+        "FI": "Finland",
+        "FJ": "Fiji",
+        "FK": "Falkland Islands",
+        "FM": "Micronesia",
+        "FO": "Faroe Islands",
+        "FR": "France",
+
+        "GA": "Gabon",
+        "GB": "United Kingdom",
+        "GD": "Grenada",
+        "GE": "Georgia",
+        "GF": "French Guiana",
+        "GG": "Guernsey",
+        "GH": "Ghana",
+        "GI": "Gibraltar",
+        "GL": "Greenland",
+        "GM": "Gambia",
+        "GN": "Guinea",
+        "GP": "Guadeloupe",
+        "GQ": "Equatorial Guinea",
+        "GR": "Greece",
+        "GS": "South Georgia and South Sandwich Islands",
+        "GT": "Guatemala",
+        "GU": "Guam",
+        "GW": "Guinea-Bissau",
+        "GY": "Guyana",
+
+        "HK": "Hong Kong",
+        "HM": "Heard Island and McDonald Islands",
+        "HN": "Honduras",
+        "HR": "Croatia",
+        "HT": "Haiti",
+        "HU": "Hungary",
+
+        "ID": "Indonesia",
+        "IE": "Ireland",
+        "IL": "Israel",
+        "IM": "Isle of Man",
+        "IN": "India",
+        "IO": "British Indian Ocean Territory",
+        "IQ": "Iraq",
+        "IR": "Iran",
+        "IS": "Iceland",
+        "IT": "Italy",
+
+        "JE": "Jersey",
+        "JM": "Jamaica",
+        "JO": "Jordan",
+        "JP": "Japan",
+
+        "KE": "Kenya",
+        "KG": "Kyrgyzstan",
+        "KH": "Cambodia",
+        "KI": "Kiribati",
+        "KM": "Comoros",
+        "KN": "Saint Kitts and Nevis",
+        "KP": "North Korea",
+        "KR": "South Korea",
+        "KW": "Kuwait",
+        "KY": "Cayman Islands",
+        "KZ": "Kazakhstan",
+
+        "LA": "Laos",
+        "LB": "Lebanon",
+        "LC": "Saint Lucia",
+        "LI": "Liechtenstein",
+        "LK": "Sri Lanka",
+        "LR": "Liberia",
+        "LS": "Lesotho",
+        "LT": "Lithuania",
+        "LU": "Luxembourg",
+        "LV": "Latvia",
+        "LY": "Libya",
+
+        "MA": "Morocco",
+        "MC": "Monaco",
+        "MD": "Moldova",
+        "ME": "Montenegro",
+        "MF": "Saint Martin",
+        "MG": "Madagascar",
+        "MH": "Marshall Islands",
+        "MK": "North Macedonia",
+        "ML": "Mali",
+        "MM": "Myanmar",
+        "MN": "Mongolia",
+        "MO": "Macao",
+        "MP": "Northern Mariana Islands",
+        "MQ": "Martinique",
+        "MR": "Mauritania",
+        "MS": "Montserrat",
+        "MT": "Malta",
+        "MU": "Mauritius",
+        "MV": "Maldives",
+        "MW": "Malawi",
+        "MX": "Mexico",
+        "MY": "Malaysia",
+        "MZ": "Mozambique",
+
+        "NA": "Namibia",
+        "NC": "New Caledonia",
+        "NE": "Niger",
+        "NF": "Norfolk Island",
+        "NG": "Nigeria",
+        "NI": "Nicaragua",
+        "NL": "Netherlands",
+        "NO": "Norway",
+        "NP": "Nepal",
+        "NR": "Nauru",
+        "NU": "Niue",
+        "NZ": "New Zealand",
+
+        "OM": "Oman",
+
+        "PA": "Panama",
+        "PE": "Peru",
+        "PF": "French Polynesia",
+        "PG": "Papua New Guinea",
+        "PH": "Philippines",
+        "PK": "Pakistan",
+        "PL": "Poland",
+        "PM": "Saint Pierre and Miquelon",
+        "PN": "Pitcairn",
+        "PR": "Puerto Rico",
+        "PS": "Palestine",
+        "PT": "Portugal",
+        "PW": "Palau",
+        "PY": "Paraguay",
+
+        "QA": "Qatar",
+
+        "RE": "Reunion",
+        "RO": "Romania",
+        "RS": "Serbia",
+        "RU": "Russia",
+        "RW": "Rwanda",
+
+        "SA": "Saudi Arabia",
+        "SB": "Solomon Islands",
+        "SC": "Seychelles",
+        "SD": "Sudan",
+        "SE": "Sweden",
+        "SG": "Singapore",
+        "SH": "Saint Helena, Ascension and Tristan da Cunha",
+        "SI": "Slovenia",
+        "SJ": "Svalbard and Jan Mayen",
+        "SK": "Slovakia",
+        "SL": "Sierra Leone",
+        "SM": "San Marino",
+        "SN": "Senegal",
+        "SO": "Somalia",
+        "SR": "Suriname",
+        "SS": "South Sudan",
+        "ST": "Sao Tome and Principe",
+        "SV": "El Salvador",
+        "SX": "Sint Maarten",
+        "SY": "Syria",
+        "SZ": "Eswatini",
+
+        "TC": "Turks and Caicos Islands",
+        "TD": "Chad",
+        "TF": "French Southern Territories",
+        "TG": "Togo",
+        "TH": "Thailand",
+        "TJ": "Tajikistan",
+        "TK": "Tokelau",
+        "TL": "Timor-Leste",
+        "TM": "Turkmenistan",
+        "TN": "Tunisia",
+        "TO": "Tonga",
+        "TR": "Turkiye",
+        "TT": "Trinidad and Tobago",
+        "TV": "Tuvalu",
+        "TW": "Taiwan",
+        "TZ": "Tanzania",
+
+        "UA": "Ukraine",
+        "UG": "Uganda",
+        "UM": "United States Minor Outlying Islands",
+        "US": "United States",
+        "UY": "Uruguay",
+        "UZ": "Uzbekistan",
+
+        "VA": "Vatican City",
+        "VC": "Saint Vincent and the Grenadines",
+        "VE": "Venezuela",
+        "VG": "British Virgin Islands",
+        "VI": "United States Virgin Islands",
+        "VN": "Vietnam",
+        "VU": "Vanuatu",
+
+        "WF": "Wallis and Futuna",
+        "WS": "Samoa",
+
+        "YE": "Yemen",
+        "YT": "Mayotte",
+
+        "ZA": "South Africa",
+        "ZM": "Zambia",
+        "ZW": "Zimbabwe",
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package fileutil
+
+import (
+        "fmt"
+        "io"
+        "os"
+)
+
+/*
+        Если файл отсутствует или пуст, в консоль соответствующее сообщение.
+
+Для получения размера файла  метод Stat(), который возвращает информацию о файле и ошибку.
+*/
+const DefaultMaxFile = 10 &lt;&lt; 12 // 40 kB
+var FileOpener = Openfile
+
+// Openfile opens a file and check it size.
+// If the file does not exist or is empty, an appropriate message is printed to the console.
+// To get the size of the file, the Stat() method is used, which returns information about the file and an error.
+func Openfile(fileName string) (result []byte, err error) <span class="cov8" title="1">{
+
+        //сначала проверяем что файл существует
+        file, err := os.Open(fileName)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">defer file.Close()
+
+        //статус файла
+        fileInfo, err := file.Stat()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">if !fileInfo.Mode().IsRegular() </span><span class="cov0" title="0">{ //отсекает всё, что не является обычным файлом
+                return nil, fmt.Errorf("not a regular file: %s", fileInfo.Mode())
+        }</span>
+        <span class="cov8" title="1">sizeFile := fileInfo.Size() //кол-во байт в файле
+
+        //файл не пустой
+        if sizeFile == 0 </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("opening file is empty")
+        }</span> else<span class="cov8" title="1"> if fileInfo.Size() &gt; DefaultMaxFile </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("file too large: %d", fileInfo.Size())
+        }</span> else<span class="cov8" title="1"> {
+
+                result, err = io.ReadAll(file)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, err
+                }</span>
+
+                <span class="cov8" title="1">return</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package httpserver
+
+import (
+        "context"
+        "encoding/json"
+        "errors"
+        "fmt"
+        "log/slog"
+        "main/config"
+        "main/sl"
+        "net"
+        "net/http"
+        "time"
+
+        res "main/internal/mainfetcher"
+        "main/internal/model"
+
+        "github.com/gorilla/mux"
+)
+
+//var fetch = res.GetResultData
+
+type resultGetter func(context.Context, *slog.Logger, *config.CfgApp) (model.ResultSetT, model.ResultT)
+
+// реализация через обёртку, чтобы спрятать varargs  custom ...fetcher и чужой тип
+var fetch resultGetter = func(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) (model.ResultSetT, model.ResultT) <span class="cov0" title="0">{
+        return res.GetResultData(ctx, logger, cfg) // varargs нам тут не нужны
+}</span>
+
+// HttpServer вызывает serveOnListener для возможности тестов с подменой serveOnListener
+func HttpServer(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgApp) error <span class="cov0" title="0">{
+        ln, err := net.Listen("tcp", cfg.HTTPAddr)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("listen %s: %w", cfg.HTTPAddr, err)
+        }</span>
+        <span class="cov0" title="0">return serveOnListener(parentCtx, logger, cfg, ln)</span>
+}
+
+func serveOnListener(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgApp, ln net.Listener) error <span class="cov8" title="1">{
+        router := mux.NewRouter()
+        // один обработчик для "/"
+        router.HandleFunc("/", makeHandleConnection(logger, cfg)).Methods(http.MethodGet)
+
+        srv := &amp;http.Server{
+                Handler:           router,
+                Addr:              cfg.HTTPAddr,
+                ReadTimeout:       15 * time.Second,
+                WriteTimeout:      15 * time.Second,
+                ReadHeaderTimeout: 5 * time.Second,  // защита от slowloris
+                IdleTimeout:       60 * time.Second, // корректные keep-alive
+                // Все входящие запросы унаследуют parentCtx:
+                BaseContext: func(net.Listener) context.Context </span><span class="cov8" title="1">{ return parentCtx }</span>, //теперь каждый r.Context() — потомок parentCtx. Когда parentCtx отменится, текущие хендлеры увидят &lt;-r.Context().Done() и корректно завершатся.
+        }
+
+        //вместо ListenAndServe тока контролируемо вручную - вынесено в HttpServer
+        // ln, err := net.Listen("tcp", srv.Addr)
+        // if err != nil {
+        //         return fmt.Errorf("listen %s: %w", srv.Addr, err)
+        // }
+
+        <span class="cov8" title="1">errc := make(chan error, 1)
+
+        go func() </span><span class="cov8" title="1">{
+                // запускаем сервер в отдельной горутине
+                // Важно: не делать log.Fatal внутри горутины
+                logger.Info("HTTP server start running at: " + cfg.HTTPAddr)
+                if err := srv.Serve(ln); err != nil &amp;&amp; !errors.Is(err, http.ErrServerClosed) </span><span class="cov0" title="0">{ // если сервер упал с реальной ошибкой (порт занят, паника и т.п.)
+                        errc &lt;- err
+                }</span> else<span class="cov8" title="1"> {
+                        errc &lt;- nil
+
+                }</span>
+        }()
+
+        // Ждём либо отмену контекста, либо ошибку сервера
+        <span class="cov8" title="1">select </span>{
+        case &lt;-parentCtx.Done():<span class="cov8" title="1">
+                // Нельзя использовать parentCtx для Shutdown: ато Shutdown сразу же увидит, что parentCtx уже отменён, и мгновенно завершит все соединения (форсировано без graceful), т.е. никакого «подождать активные запросы 5 секунд» не будет
+                // если Go &gt;= 1.21 — лучше так:
+                shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(parentCtx), 5*time.Second) // теперь это новый контекст, который не отменится сразу по SIGTERM,а отменится через 5 секунд, если Shutdown не успеет завершить все запросы
+                defer cancel()
+
+                logger.Info("HTTP server start shutdown procedure")
+
+                if err := srv.Shutdown(shutdownCtx); err != nil </span><span class="cov0" title="0">{
+                        logger.Info("HTTP server shutdown: %w", sl.Err(err))
+                        return fmt.Errorf("HTTP server shutdown: %w", err)
+                }</span>
+                <span class="cov8" title="1">return &lt;-errc</span> // дождаться выхода Serve()
+
+        case err := &lt;-errc:<span class="cov0" title="0">
+                // Сервер сам умер (порт занят, паника в хендлере и т.д.)
+                return err</span>
+        }
+}
+
+// func HttpServer(parentCtx context.Context, logger *slog.Logger) {
+//         g.Go(func() error {
+//                 //TODO: добавьте ему обработку адреса “/” на функцию handleConnection
+//                 router := mux.NewRouter()
+
+//                 router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//                         // an example API handler
+//                         json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+//                 })
+//                 router.HandleFunc("/", handleConnection)
+
+//                 srv := &amp;http.Server{
+//                         Handler: router,
+//                         Addr:    "127.0.0.1:8282",
+//                         // Good practice: enforce timeouts for servers you create!
+//                         WriteTimeout: 15 * time.Second,
+//                         ReadTimeout:  15 * time.Second,
+//                 }
+//                 //res.PrepaireResStub()
+//                 log.Fatal(srv.ListenAndServe())
+//                 return nil
+//         })
+// }
+
+// хендлер: берёт контекст запроса, вызывает GetResultData и отдаёт JSON
+func makeHandleConnection(logger *slog.Logger, cfg *config.CfgApp) http.HandlerFunc <span class="cov8" title="1">{
+        type APIResponse struct {
+                ResultSet model.ResultSetT `json:"resultSet"`
+                Result    model.ResultT    `json:"result"`
+        }
+        return func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                // общий бюджет на сбор данных в рамках запроса (опционально)
+                ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second) //Небольшой per-request таймаут (WithTimeout(r.Context(), 10s)) — чтобы не зависнуть, даже если кто-то внутри подвис.
+                defer cancel()
+
+                rs, rr := fetch(ctx, logger, cfg)
+
+                // если клиент уже отвалился/таймаут — не пишем ответ
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov8" title="1">
+                        return</span>
+                default:<span class="cov8" title="1"></span>
+                }
+
+                <span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
+                enc := json.NewEncoder(w)
+                // enc.SetIndent("", "  ") // если нужен красивый вывод
+                if err := enc.Encode(APIResponse{ResultSet: rs, Result: rr}); err != nil </span><span class="cov0" title="0">{
+                        http.Error(w, "encode error: "+err.Error(), http.StatusInternalServerError)
+                        return
+                }</span>
+        }
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">// internal/httpx/fetch.go
+package httpx
+
+import (
+        "context"
+        "fmt"
+        "io"
+        "net/http"
+        "time"
+
+        "log/slog"
+)
+
+type Doer interface {
+        Do(*http.Request) (*http.Response, error)
+}
+
+type DecoderFunc[T any] func(r io.Reader) ([]T, error)
+
+// Общая функция: делает GET, проверяет статус, декодирует массив элементов.
+func FetchArray[T any](
+        ctx context.Context,
+        log *slog.Logger,
+        client Doer,
+        url string,
+        decode DecoderFunc[T],
+        op string,
+) ([]T, error) <span class="cov8" title="1">{
+        l := log.With(slog.String("op", op), slog.String("url", url))
+        start := time.Now()
+
+        req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil) //Если ctx будет отменён (graceful shutdown наверху), транспорт net/http прервёт операцию: Do или последующее чтение тела вернёт ошибку (типично context canceled).
+        if err != nil </span><span class="cov0" title="0">{
+                l.Error("build request", slog.Any("err", err))
+                return nil, fmt.Errorf("%s: build request: %w", op, err)
+        }</span>
+
+        <span class="cov8" title="1">res, err := client.Do(req)
+        if err != nil </span><span class="cov8" title="1">{
+                l.Error("do http-request", slog.Any("err", err))
+                return nil, fmt.Errorf("%s: do request: %w", op, err)
+        }</span>
+        <span class="cov8" title="1">defer func() </span><span class="cov8" title="1">{
+                // гарантируем дренирование, чтобы не терять keep-alive
+                // чтобы соединение из пула http.Client могло переиспользоваться и не падала производительность всплесками новых TCP-коннектов.
+                _, _ = io.Copy(io.Discard, res.Body) //В net/http (HTTP/1.1) соединение можно вернуть в пул только если тело ответа дочитано до EOF и закрыто; но это на  случай если мы все не вычитали, а "упали"
+                _ = res.Body.Close()
+        }</span>()
+
+        <span class="cov8" title="1">if res.StatusCode &lt; 200 || res.StatusCode &gt; 299 </span><span class="cov8" title="1">{
+                err = fmt.Errorf("%s: unexpected HTTP status: %s (%d)", op, res.Status, res.StatusCode)
+                l.Error("bad status", slog.Any("err", err), slog.Int("status_code", res.StatusCode))
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">items, err := decode(res.Body)
+        if err != nil </span><span class="cov8" title="1">{
+                l.Error("decode body", slog.Any("err", err))
+                return nil, fmt.Errorf("%s: decode body: %w", op, err)
+        }</span>
+
+        <span class="cov8" title="1">l.Info("fetched",
+                slog.Duration("dur", time.Since(start)),
+                slog.Int("status_code", res.StatusCode),
+        )
+
+        return items, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package jsonx
+
+import (
+        "bytes"
+        "encoding/json"
+        "errors"
+        "fmt"
+        "io"
+)
+
+var ErrTopLevelNotArray = errors.New("jsonx: expected top-level JSON array")
+
+// Если тип умеет сам себя валидировать – пусть реализует Validate()
+type Validatable interface {
+        Validate() error
+}
+
+// Параметры поведения декодера
+type Options[T any] struct {
+        // Необязательная функция валидации, если тип не реализует Validatable
+        ValidateFunc func(T) error
+        // Если true — при ошибке элемента сразу возвращаем ошибку;
+        // по умолчанию false: пропускаем плохие элементы.
+        FailFast bool
+}
+
+// DecodeArray: из []byte в []T, строгий разбор каждого элемента с DisallowUnknownFields.
+// Если у тебя уже есть []byte (например, в тесте).
+// Нужно один раз прочитать тело полностью (логирование, подпись, ретраи с повторным парсом).
+// Если Маленькие ответы — чтобы не заморачиваться.
+func DecodeArray[T any](data []byte, opt *Options[T]) ([]T, error) <span class="cov8" title="1">{
+        dec := json.NewDecoder(bytes.NewReader(data))
+        return decodeArrayWithDecoder[T](dec, opt)
+}</span>
+
+// DecodeArrayFromReader (io.Reader):
+// Если парсишь напрямую из сети: jsonx.DecodeArrayFromReader(res.Body, ...).
+// Важна пиковая память: не держим весь JSON, буферим лишь по одному элементу (наш декодер читает элемент → валидирует → добавляет → следующий).
+// Большие ответы и backpressure: читаем по мере разбора, не вызываем io.ReadAll.
+func DecodeArrayFromReader[T any](r io.Reader, opt *Options[T]) ([]T, error) <span class="cov8" title="1">{
+        dec := json.NewDecoder(r)
+        return decodeArrayWithDecoder[T](dec, opt)
+}</span>
+
+func decodeArrayWithDecoder[T any](dec *json.Decoder, opt *Options[T]) ([]T, error) <span class="cov8" title="1">{
+        // ждём '['
+        tok, err := dec.Token()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err // здесь Decoder вернёт *json.SyntaxError, если JSON битый
+        }</span>
+        <span class="cov8" title="1">d, ok := tok.(json.Delim)
+        if !ok || d != '[' </span><span class="cov8" title="1">{
+                // своей ошибкой понятнее подсветить контракт
+                return nil, fmt.Errorf("%w (got %v at offset %d)", ErrTopLevelNotArray, tok, dec.InputOffset())
+        }</span>
+
+        <span class="cov8" title="1">out := make([]T, 0, 8)
+
+        for dec.More() </span><span class="cov8" title="1">{
+                // берём следующий элемент как raw, затем разбираем его строго
+                var raw json.RawMessage
+                if err := dec.Decode(&amp;raw); err != nil </span><span class="cov0" title="0">{
+                        if opt != nil &amp;&amp; opt.FailFast </span><span class="cov0" title="0">{
+                                return nil, err
+                        }</span>
+                        <span class="cov0" title="0">continue</span>
+                }
+
+                <span class="cov8" title="1">var v T
+                elDec := json.NewDecoder(bytes.NewReader(raw))
+                elDec.DisallowUnknownFields()
+                if err := elDec.Decode(&amp;v); err != nil </span><span class="cov8" title="1">{
+                        if opt != nil &amp;&amp; opt.FailFast </span><span class="cov8" title="1">{
+                                return nil, err
+                        }</span>
+                        <span class="cov8" title="1">continue</span>
+                }
+
+                <span class="cov8" title="1">if vv, ok := any(v).(Validatable); ok </span><span class="cov8" title="1">{
+                        if err := vv.Validate(); err != nil </span><span class="cov8" title="1">{
+                                if opt != nil &amp;&amp; opt.FailFast </span><span class="cov0" title="0">{
+                                        return nil, err
+                                }</span>
+                                <span class="cov8" title="1">continue</span>
+                        }
+                } else<span class="cov8" title="1"> if opt != nil &amp;&amp; opt.ValidateFunc != nil </span><span class="cov8" title="1">{
+                        if err := opt.ValidateFunc(v); err != nil </span><span class="cov8" title="1">{
+                                if opt.FailFast </span><span class="cov8" title="1">{
+                                        return nil, err
+                                }</span>
+                                <span class="cov8" title="1">continue</span>
+                        }
+                }
+
+                <span class="cov8" title="1">out = append(out, v)</span>
+        }
+
+        // ждём ']'
+        <span class="cov8" title="1">tok, err = dec.Token()
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+        <span class="cov8" title="1">if d, ok := tok.(json.Delim); !ok || d != ']' </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("jsonx: unterminated array (offset %d)", dec.InputOffset())
+        }</span>
+
+        <span class="cov8" title="1">return out, nil</span>
+}
+
+// var decodeData = decodeJsonAndValidate
+
+// // Вызов метода валидации структуры
+// func (v SupportData) Validate() error {
+//         return validate.Struct(v)
+// }
+
+// func decodeJsonAndValidate(jsonData []byte) ([]SupportData, error) {
+//         var raws []json.RawMessage
+//         if err := json.Unmarshal(jsonData, &amp;raws); err != nil {
+//                 return []SupportData{}, err
+//         }
+//         out := make([]SupportData, 0, len(raws))
+//         for _, rm := range raws {
+//                 var item SupportData
+//                 // json.NewDecoder даёт два плюса, которых нет у Unmarshal:  DisallowUnknownFields()- парсинг упадёт, если в JSON есть поле, которого нет в MMSData; Через Decoder можно, например, читать не только целиком объект, но и токен за токеном
+//                 dec := json.NewDecoder(bytes.NewReader(rm)) //bytes.NewReader(rm) оборачивает слайс в объект, который реализует io.Reader, чтобы можно было работать как с потоком.
+//                 dec.DisallowUnknownFields()
+//                 if err := dec.Decode(&amp;item); err != nil { //err если есть лишние поля
+//                         continue
+//                 }
+//                 if err := item.Validate(); err != nil {
+//                         continue
+//                 }
+//                 out = append(out, item)
+//         }
+//         return out, nil
+// }
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package mainfetcher
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "log"
+        "log/slog"
+        "main/config"
+        "net/http"
+        "reflect"
+        "sync"
+        "time"
+
+        bill "main/billingstat"
+        email "main/emaildata"
+        incident "main/incidentdata"
+        m "main/internal/model"
+        mms "main/mmsdata"
+        sms "main/smsdata"
+        "main/support"
+        voice "main/voicedata"
+
+        "golang.org/x/sync/errgroup"
+)
+
+func PrepaireResStub() <span class="cov0" title="0">{
+
+        smsTest1 := [][]m.SMSData{
+                {
+                        {Country: "US", Bandwidth: "64", ResponseTime: "1923", Provider: "Rond"},
+                },
+                {
+                        {Country: "GB", Bandwidth: "88", ResponseTime: "1892", Provider: "Topolo"},
+                },
+                {
+                        {Country: "FR", Bandwidth: "61", ResponseTime: "170", Provider: "Topolo"},
+                },
+                {
+                        {Country: "BL", Bandwidth: "57", ResponseTime: "267", Provider: "Kildy"},
+                },
+        }
+        mmsTest1 := [][]m.MMSData{
+                {
+                        {Country: "US", Provider: "Rond", Bandwidth: "36", ResponseTime: "1576"},
+                },
+                {
+                        {Country: "GB", Provider: "Kildy", Bandwidth: "85", ResponseTime: "300"},
+                },
+        }
+        voiceTest1 := []m.VoiceCallData{
+                {
+                        Country:             "RU",
+                        Bandwidth:           "86",
+                        ResponseTime:        "297",
+                        Provider:            "TransparentCalls",
+                        ConnectionStability: 0.9,
+                        TTFB:                120,
+                        VoicePurity:         80,
+                        MedianOfCallsTime:   30,
+                },
+                {
+                        Country:             "US",
+                        Bandwidth:           "64",
+                        ResponseTime:        "1923",
+                        Provider:            "E-Voice",
+                        ConnectionStability: 0.75,
+                        TTFB:                200,
+                        VoicePurity:         65,
+                        MedianOfCallsTime:   45,
+                },
+                {
+                        Country:             "GB",
+                        Bandwidth:           "88",
+                        ResponseTime:        "1892",
+                        Provider:            "JustPhone",
+                        ConnectionStability: 0.6,
+                        TTFB:                150,
+                        VoicePurity:         70,
+                        MedianOfCallsTime:   50,
+                },
+        }
+
+        emailTest1 := map[string][][]m.EmailData{
+                "RU": {
+                        {
+                                {Country: "RU", Provider: "Gmail", DeliveryTime: 23},
+                        },
+                        {
+                                {Country: "RU", Provider: "Yahoo", DeliveryTime: 169},
+                        },
+                        {
+                                {Country: "RU", Provider: "Hotmail", DeliveryTime: 63},
+                        },
+                        {
+                                {Country: "RU", Provider: "MSN", DeliveryTime: 475},
+                        },
+                        {
+                                {Country: "RU", Provider: "Orange", DeliveryTime: 519},
+                        },
+                        {
+                                {Country: "RU", Provider: "Comcast", DeliveryTime: 408},
+                        },
+                        {
+                                {Country: "RU", Provider: "AOL", DeliveryTime: 254},
+                        },
+                        {
+                                {Country: "RU", Provider: "GMX", DeliveryTime: 246},
+                        },
+                },
+        }
+        /*        billTest1 := bill.BillingData{CreateCustomer: true, Purchase: false, Payout: true, Recurring: false, FraudControl: true, CheckoutPage: false}
+                suppTest1 := supp.SupportData{Topic: "issue of everything", ActiveTickets: 1}
+                incidTest1 := incid.IncidentData{Topic: "boom", Status: "active"}*/
+
+        // 2. Создание и заполнение структуры ResultSetT
+        resultSet := m.ResultSetT{
+                SMS:       smsTest1,
+                MMS:       mmsTest1,
+                VoiceCall: voiceTest1,
+                Email:     emailTest1,
+                //        Billing:   billingData,
+                //                Support:   supportData,
+                //                Incidents: incidentsData,
+        }
+        // 3. Создание и заполнение главной структуры ResultT
+        /*result := ResultT{
+                Status: true,
+                Data:   resultSet,
+                Error:  "",
+        }*/
+
+        // 4. Маршалинг всей структуры ResultT в JSON
+        jsonData, err := json.Marshal(resultSet)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Ошибка маршалинга: %v", err)
+        }</span>
+
+        // 5. Вывод JSON в консоль
+        <span class="cov0" title="0">fmt.Println(string(jsonData))</span>
+
+}
+
+// -----------------------------------------
+/* тип функции, возвращающей слайс данных
+type sliceFetchFn[T any] func(ctx context.Context) ([]T, error) //это компактный способ описать «контракт» для функций вида “дай мне слайс T по контексту, либо ошибку”, который можно переиспользовать для разных доменных типов.
+
+// общий шаблон: запускает задачу в errgroup, логирует результат и НЕ отменяет соседей при ошибке
+func goFetchSlice[T any](g *errgroup.Group, parentCtx context.Context, logger *slog.Logger, name string, timeOut time.Duration, fn sliceFetchFn[T]) {
+        g.Go(func() error {
+                ctx, cancel := context.WithTimeout(parentCtx, timeOut)
+                defer cancel()
+
+                start := time.Now()
+                data, err := fn(ctx)
+                if err != nil {
+                        logger.Info(name+" NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil // важный момент: не «роняем» группу, остальные задачи продолжат работу
+                }
+                logger.Info(name+" fetched",
+                        slog.Int("count", len(data)),
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug(name+" data:", " ", data)
+                return nil
+        })
+}*/
+// goFetchSlice(g, ctx, logger, "sms", perReqTimeout, func(ctx context.Context) ([]sms.SMSData, error) {
+//         return sms.Fetch(logger, cfg)
+// })
+// goFetchSlice(g, ctx, logger, "voice", perReqTimeout, func(ctx context.Context) ([]voicedata.VoiceCallData, error) {
+//         return voicedata.Fetch(logger, cfg)
+// })
+// goFetchSlice(g, ctx, logger, "email", perReqTimeout, func(ctx context.Context) ([]emaildata.EmailData, error) {
+//         return emaildata.Fetch(logger, cfg)
+// })
+// goFetchSlice(g, ctx, logger, "mms", perReqTimeout, func(ctx context.Context) ([]mms.MMSData, error) {
+//         return svcMms.Fetch(ctx)
+// })
+// goFetchSlice(g, ctx, logger, "support", perReqTimeout, func(ctx context.Context) ([]support.SupportData, error) {
+//         return svcSupp.Fetch(ctx)
+// })
+
+type fetcher func(g *errgroup.Group, ctx context.Context) //обёртка-замыкание -- т.к. часть функций требует *http.Client, часть — нет, плюс передаются другие параметры
+
+// «Связываем» конкретные GoFetch в единый тип, замыкая внешние зависимости
+func makeFetcher(
+        fn func(*errgroup.Group, context.Context, *slog.Logger, time.Duration, *config.CfgApp, *m.ResultSetT, *sync.Mutex),
+        logger *slog.Logger, perReq time.Duration, cfg *config.CfgApp, rs *m.ResultSetT, mu *sync.Mutex,
+) fetcher <span class="cov0" title="0">{
+        return func(g *errgroup.Group, ctx context.Context) </span><span class="cov0" title="0">{
+                fn(g, ctx, logger, perReq, cfg, rs, mu)
+        }</span>
+}
+
+func makeFetcherWithClient(
+        fn func(*errgroup.Group, context.Context, *slog.Logger, time.Duration, *http.Client, *config.CfgApp, *m.ResultSetT, *sync.Mutex),
+        logger *slog.Logger, perReq time.Duration, client *http.Client, cfg *config.CfgApp, rs *m.ResultSetT, mu *sync.Mutex,
+) fetcher <span class="cov0" title="0">{
+        return func(g *errgroup.Group, ctx context.Context) </span><span class="cov0" title="0">{
+                fn(g, ctx, logger, perReq, client, cfg, rs, mu)
+        }</span>
+}
+
+func GetResultData(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgApp, custom ...fetcher) (rs m.ResultSetT, r m.ResultT) <span class="cov8" title="1">{
+        /*Наглядная «карта отмен»
+          SIGINT/SIGTERM  ─┐
+                           ├─(отменяет)→ parentCtx ──┐
+          manual stop()  ──┘                         ├─(отменяет)→ groupCtx (из errgroup), но сделано так чтобы горутина не возвращала ошибку, т.е. можно не использовать groupCtx для errgroup
+                                      любая Go() вернула ошибку ──┘
+
+        */
+        var mu sync.Mutex
+        // 1) один http.Client на весь процесс (reuse пула соединений)
+        client := &amp;http.Client{Timeout: 5 * time.Second}
+
+        // 2) конструируем сервисы с контекстным Fetch
+        //svcMms := mms.NewService(logger, cfg, client)
+
+        // 3) errgroup с лимитом параллелизма
+        g, groupCtx := errgroup.WithContext(parentCtx)
+        g.SetLimit(7) // лимит активных горутин -- TODO: или использовать pool - Для простого кейса лимита параллелизма SetLimit — идеально. Пул нужен, когда хочешь долгоживущих воркеров, очереди задач, приоритизацию и т.п.
+
+        perReqTimeout := 3 * time.Second
+
+        var fs []fetcher
+        if len(custom) &gt; 0 </span><span class="cov8" title="1">{
+                fs = custom
+        }</span> else<span class="cov0" title="0"> { //запуск Fetcher-ов по умолчанию корректный; custom для тестов
+                fs = []fetcher{
+                        makeFetcher(sms.GoFetch, logger, perReqTimeout, cfg, &amp;rs, &amp;mu), //тут параметры - «чем и куда писать»
+                        makeFetcher(voice.GoFetch, logger, perReqTimeout, cfg, &amp;rs, &amp;mu),
+                        makeFetcher(email.GoFetch, logger, perReqTimeout, cfg, &amp;rs, &amp;mu),
+                        makeFetcherWithClient(mms.GoFetch, logger, perReqTimeout, client, cfg, &amp;rs, &amp;mu),
+                        makeFetcher(bill.GoFetch, logger, perReqTimeout, cfg, &amp;rs, &amp;mu),
+                        makeFetcherWithClient(support.GoFetch, logger, perReqTimeout, client, cfg, &amp;rs, &amp;mu),
+                        makeFetcherWithClient(incident.GoFetch, logger, perReqTimeout, client, cfg, &amp;rs, &amp;mu),
+                }
+        }</span>
+
+        // 4) параллельные задачи
+        // Запускаем все задачи
+        <span class="cov8" title="1">for _, f := range fs </span><span class="cov8" title="1">{
+                f(g, groupCtx) //g и ctx — это про «когда и как бежать» - эти параметры нам нужны чтобы подменить в тестах
+        }</span>
+        // sms.GoFetch(g, groupCtx, logger, perReqTimeout, cfg, &amp;rs, &amp;mu) //с одной стороны вызов проще, но аргументов уже много - и не особо наглядно
+
+        // voice.GoFetch(g, groupCtx, logger, perReqTimeout, cfg, &amp;rs, &amp;mu)
+
+        // email.GoFetch(g, groupCtx, logger, perReqTimeout, cfg, &amp;rs, &amp;mu)
+
+        // mms.GoFetch(g, groupCtx, logger, perReqTimeout, client, cfg, &amp;rs, &amp;mu)
+
+        // bill.GoFetch(g, groupCtx, logger, perReqTimeout, cfg, &amp;rs, &amp;mu)
+
+        // support.GoFetch(g, groupCtx, logger, perReqTimeout, client, cfg, &amp;rs, &amp;mu)
+
+        // incident.GoFetch(g, groupCtx, logger, perReqTimeout, client, cfg, &amp;rs, &amp;mu)
+
+        // 5) ждём завершения всех фетчей
+        <span class="cov8" title="1">_ = g.Wait()
+
+        r = BuildResultT(rs)
+
+        return rs, r</span>
+
+}
+
+func validateResultSet(rs m.ResultSetT) error <span class="cov8" title="1">{
+        // SMS
+        if len(rs.SMS) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("sms empty")
+        }</span>
+        <span class="cov8" title="1">for _, batch := range rs.SMS </span><span class="cov8" title="1">{
+                if len(batch) == 0 </span><span class="cov8" title="1">{
+                        return fmt.Errorf("sms has empty batch")
+                }</span>
+        }
+
+        // MMS
+        <span class="cov8" title="1">if len(rs.MMS) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("mms empty")
+        }</span>
+        <span class="cov8" title="1">for _, batch := range rs.MMS </span><span class="cov8" title="1">{
+                if len(batch) == 0 </span><span class="cov8" title="1">{
+                        return fmt.Errorf("mms has empty batch")
+                }</span>
+        }
+
+        // VoiceCall
+        <span class="cov8" title="1">if len(rs.VoiceCall) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("voice_call empty")
+        }</span>
+
+        // Email
+        <span class="cov8" title="1">if rs.Email == nil || len(rs.Email) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("email empty")
+        }</span>
+        <span class="cov8" title="1">for _, buckets := range rs.Email </span><span class="cov8" title="1">{
+                if len(buckets) == 0 </span><span class="cov8" title="1">{
+                        return fmt.Errorf("email has empty buckets")
+                }</span>
+                <span class="cov8" title="1">for _, bucket := range buckets </span><span class="cov8" title="1">{
+                        if len(bucket) == 0 </span><span class="cov8" title="1">{
+                                return fmt.Errorf("email has empty bucket")
+                        }</span>
+                }
+        }
+
+        // Billing — проверяем на нулевое значение структуры
+        <span class="cov8" title="1">if reflect.ValueOf(rs.Billing).IsZero() </span><span class="cov8" title="1">{
+                return fmt.Errorf("billing is zero")
+        }</span>
+
+        // Support
+        <span class="cov8" title="1">if len(rs.Support) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("support empty")
+        }</span>
+
+        // Incidents
+        <span class="cov8" title="1">if len(rs.Incidents) == 0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("incident empty")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// BuildResult формирует r по заданным правилам
+func BuildResultT(rs m.ResultSetT) m.ResultT <span class="cov8" title="1">{
+        if err := validateResultSet(rs); err != nil </span><span class="cov8" title="1">{
+                // есть пропуски
+                return m.ResultT{
+                        Status: false,
+                        // Data не заполняем (останется нулевым значением)
+                        Error: "Error on collect data",
+                }
+        }</span>
+
+        // всё заполнено
+        <span class="cov8" title="1">return m.ResultT{
+                Status: true,
+                Data:   rs,
+                Error:  "",
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package model
+
+import (
+        "main/internal/validatestruct"
+)
+
+type EmailData struct {
+        Country      string `validate:"iso3166_1_alpha2"`
+        Provider     string `validate:"oneof=Gmail Yahoo Hotmail MSN Orange Comcast AOL Live RediffMail GMX Protonmail Yandex Mail.ru"`
+        DeliveryTime int    `validate:"required"`
+}
+
+// Вызов метода валидации структуры
+func (v EmailData) Validate() error <span class="cov0" title="0">{
+        return validatestruct.Struct(v)
+}</span>
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package model
+
+import (
+        valid "main/internal/validatestruct"
+)
+
+type IncidentData struct {
+        Topic  string `json:"topic" validate:"required"`
+        Status string `json:"status" validate:"oneof=active closed"`
+}
+
+func (v IncidentData) Validate() error <span class="cov0" title="0">{
+        return valid.Struct(v)
+}</span>
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package model
+
+import (
+        valid "main/internal/validatestruct"
+)
+
+// структура для MMSData
+type MMSData struct {
+        Country      string `json:"country" validate:"iso3166_1_alpha2"`
+        Provider     string `json:"provider" validate:"oneof=Topolo Rond Kildy"`
+        Bandwidth    string `json:"bandwidth" validate:"required,num0to100"`
+        ResponseTime string `json:"response_time" validate:"required,number"`
+}
+
+func (v MMSData) Validate() error <span class="cov0" title="0">{
+        return valid.Struct(v)
+}</span>
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package model
+
+import (
+        valid "main/internal/validatestruct"
+)
+
+// структура для SMSData
+type SMSData struct {
+        Country      string `validate:"iso3166_1_alpha2"`
+        Bandwidth    string `validate:"required,num0to100"` // ← только цифры (0..100)
+        ResponseTime string `validate:"required,number"`    // ← в том числе float
+        Provider     string `validate:"oneof=Topolo Rond Kildy"`
+}
+
+// Вызов метода валидации структуры
+func (v SMSData) Validate() error <span class="cov0" title="0">{
+        return valid.Struct(v)
+}</span>
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package model
+
+import (
+        valid "main/internal/validatestruct"
+)
+
+type SupportData struct {
+        Topic         string `json:"topic"       validate:"required"`
+        ActiveTickets int    `json:"active_tickets" validate:"gte=-1"`
+}
+
+func (v SupportData) Validate() error <span class="cov0" title="0">{
+        return valid.Struct(v)
+}</span>
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package model
+
+import (
+        valid "main/internal/validatestruct"
+)
+
+type VoiceCallData struct {
+        Country             string  `validate:"iso3166_1_alpha2"`
+        Bandwidth           string  `validate:"required,num0to100"` // ← только цифры (0..100)
+        ResponseTime        string  `validate:"required,number"`    // ← в том числе float
+        Provider            string  `validate:"oneof=TransparentCalls E-Voice JustPhone"`
+        ConnectionStability float32 `validate:"required"`
+        TTFB                int     `validate:"required"`
+        VoicePurity         int     `validate:"required"`
+        MedianOfCallsTime   int     `validate:"required"`
+}
+
+// Вызов метода валидации структуры
+func (v VoiceCallData) Validate() error <span class="cov0" title="0">{
+        return valid.Struct(v)
+}</span>
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package textutil
+
+// SplitN разделяет строку на N частей, по символу разделителя sep.
+// Возвращает части строки и флаг ok, который указывает на успешность операции.
+// Использовать такую функцию дешевое чем strings.Split - он аллоцирует больше памяти и т.д.
+func SplitN(line string, sep byte, numCols int) ([]string, bool) <span class="cov8" title="1">{
+        if line == "" </span><span class="cov8" title="1">{
+                return nil, false
+        }</span>
+        <span class="cov8" title="1">if line[len(line)-1] == '\r' </span><span class="cov0" title="0">{
+                line = line[:len(line)-1] // Убираем лишний символ '\r' для Windows-строк
+        }</span>
+
+        // Создаем слайс для колонок
+        <span class="cov8" title="1">columns := make([]string, 0, numCols)
+        last := 0
+        cuts := 0
+
+        // Проходим по строке
+        for i := 0; i &lt; len(line); i++ </span><span class="cov8" title="1">{
+                if line[i] == sep </span><span class="cov8" title="1">{
+                        columns = append(columns, line[last:i])
+                        cuts++
+                        last = i + 1
+                }</span>
+
+                // Если нашли больше разделителей, чем нужно, выходим с ошибкой
+                <span class="cov8" title="1">if cuts &gt;= numCols </span><span class="cov8" title="1">{
+                        return nil, false
+                }</span>
+        }
+
+        // Добавляем последнюю колонку (после последнего разделителя)
+        <span class="cov8" title="1">columns = append(columns, line[last:])
+
+        // Если количество колонок не совпало с ожидаемым, возвращаем false
+        if len(columns) != numCols </span><span class="cov8" title="1">{
+                return nil, false
+        }</span>
+
+        <span class="cov8" title="1">return columns, true</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package validatestruct
+
+import (
+        "strconv"
+
+        "github.com/go-playground/validator/v10"
+)
+
+// общий валидатор (инициализируется один раз)
+var v = validator.New()
+
+// поле SMSData.Bandwidth должно остаться string, придётся зарегистрировать свою проверку: встроенные min/max
+func init() <span class="cov8" title="1">{
+        v.RegisterValidation("num0to100", func(fl validator.FieldLevel) bool </span><span class="cov0" title="0">{
+                s := fl.Field().String()
+                n, err := strconv.Atoi(s)
+                return err == nil &amp;&amp; n &gt;= 0 &amp;&amp; n &lt;= 100
+        }</span>)
+}
+
+// Struct — функция если нужно валидироват объект
+func Struct(s any) error <span class="cov8" title="1">{
+        // объект валидатора - передаем в него структуру, которую нужно провалидировать
+        return v.Struct(s)
+}</span>
+
+// columnsCorrect determines if the columns of an  data  are correct by columns quantity
+//
+// Parameters:
+// DataLine - a slice of strings containing the data from an data record
+//
+// Returns:
+// true if the columns of the SMS data record are correct, false otherwise
+func ColumnsChecker(SMSDataLine []string, quantCol int) bool <span class="cov8" title="1">{
+        return len(SMSDataLine) == quantCol
+}</span>
+
+// TODO: это не используется
+func ValidateStruct(s any) (bool, error) <span class="cov8" title="1">{
+        // Создаем объект валидатора
+        // и передаем в него структуру, которую нужно провалидировать
+        if err := validator.New().Struct(s); err != nil </span><span class="cov0" title="0">{
+                // Приводим ошибку к типу ошибки валидации
+                //validateErr := err.(validator.ValidationErrors)
+                return false, err
+        }</span>
+        <span class="cov8" title="1">return true, nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file21" style="display: none">package main
+
+import (
+        "context"
+        "flag"
+        "os"
+        "os/signal"
+        "syscall"
+
+        "log/slog"
+        "time"
+
+        //менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
+        "main/config"
+        s "main/internal/httpserver"
+)
+
+// LogCfg описывает параметры логирования, которые удобнее всего задавать флагами/ENV.
+type LogCfg struct {
+        Format string // text | json
+        Level  string // debug | info | warn | error
+}
+
+// readLogCfg парсит флаги командной строки и возвращает конфиг логгера.
+// запукать в терминале bash
+//
+//        $ go run . -log.format=json -log.level=debug    go run . -log.format=text -log.level=debug
+func readLogCfg() LogCfg <span class="cov0" title="0">{
+        var cfg LogCfg
+        flag.StringVar(&amp;cfg.Format, "log.format", "text", "log output format: text|json")
+        flag.StringVar(&amp;cfg.Level, "log.level", "info", "log level: debug|info|warn|error")
+        flag.Parse()
+        return cfg
+}</span>
+
+// -----------------------------------------
+func init() {<span class="cov0" title="0">
+
+}</span>
+
+func main() <span class="cov0" title="0">{
+        //Конфига флагов запуска сервиса
+        appFlags := readLogCfg()
+
+        // 1. загружаем конфиг
+        cfgApp, err := config.Load("config.cfg")
+        if err != nil </span><span class="cov0" title="0">{
+                // логгера ещё нет, поэтому просто stderr + выход
+                _, _ = os.Stderr.WriteString("state_Collector config load error: " + err.Error() + "\n")
+                os.Exit(1)
+        }</span>
+
+        // 2. настраиваем логирование
+        <span class="cov0" title="0">logger := setupLogger(appFlags)
+
+        ctx, stop := signal.NotifyContext(context.Background(),
+                syscall.SIGTERM, syscall.SIGINT)
+        defer stop()
+
+        // Дополняем контекст логгером, чтобы его можно было
+        // извлекать в глубине (slog.FromContext(ctx)).
+        //ctx = slog.NewContext(ctx, logger) - хоть и с версии 1.22 такое должно работать, у меня на 1.24 нет
+
+        //logger.Debug("logging started")
+        logger.Info("state_Collector starting", slog.String("Version", "1.06"))
+
+        // Главная работа сервиса.
+        if err := run(ctx, logger, cfgApp); err != nil </span><span class="cov0" title="0">{
+                logger.Error("collector failed", slog.Any("err", err))
+        }</span>
+
+        <span class="cov0" title="0">logger.Info("state_Collector stopped")</span>
+}
+
+// run — «бизнес-логика», умеет останавливаться по ctx.Done().
+func run(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgApp) error <span class="cov0" title="0">{
+
+        s.HttpServer(parentCtx, logger, cfg)
+
+        //heartbeat + graceful shutdown
+        ticker := time.NewTicker(10 * time.Second)
+        defer ticker.Stop()
+
+        // Эмуляция длительной работы с периодической проверкой контекста.
+        for </span><span class="cov0" title="0">{
+                select </span>{
+                case &lt;-parentCtx.Done():<span class="cov0" title="0">
+                        logger.Debug("state_Collector.run(): ctx cancelled — graceful exit")
+                        return nil</span>
+                case t := &lt;-ticker.C:<span class="cov0" title="0">
+                        logger.Debug("state_Collector.heartbeat", slog.Time("ts", t))</span>
+                }
+        }
+
+}
+
+// логирование - setupLogger строит slog.Logger согласно конфигурации.
+func setupLogger(cfg LogCfg) *slog.Logger <span class="cov0" title="0">{
+        var lvl slog.Level
+        if err := lvl.UnmarshalText([]byte(cfg.Level)); err != nil </span><span class="cov0" title="0">{ // преобразование текстового флага (например, -log.level=debug) в специальный тип slog.Level
+                lvl = slog.LevelInfo // slog.LevelInfo при ошибке
+
+                // Уведомляем пользователя о проблеме флагов
+                slog.Warn("Invalid log level provided, falling back to 'info'",
+                        slog.String("provided_level", cfg.Level),
+                )
+        }</span>
+
+        <span class="cov0" title="0">opts := &amp;slog.HandlerOptions{
+                Level:     lvl,
+                AddSource: true, // покажет файл:строку
+        }
+
+        var h slog.Handler
+        switch cfg.Format </span>{
+        case "json":<span class="cov0" title="0">
+                h = slog.NewJSONHandler(os.Stdout, opts)</span>
+        default:<span class="cov0" title="0">
+                h = slog.NewTextHandler(os.Stdout, opts)</span>
+        }
+
+        <span class="cov0" title="0">return slog.New(h)</span>
+}
+</pre>
+		
+		<pre class="file" id="file22" style="display: none">package mmsdata
+
+import (
+        "context"
+        "io"
+        "net/http"
+        "time"
+
+        "log/slog"
+        "main/config"
+        "main/internal/httpx"
+        "main/internal/jsonx"
+        m "main/internal/model"
+)
+
+// В продакшене передавайте http.Client извне, чтобы реиспользовать пул соединений.
+type Service struct {
+        log    *slog.Logger
+        cfg    *config.CfgApp
+        client *http.Client
+}
+
+func NewService(log *slog.Logger, cfg *config.CfgApp, client *http.Client) *Service <span class="cov8" title="1">{
+        if client == nil </span><span class="cov0" title="0">{
+                client = &amp;http.Client{Timeout: 5 * time.Second}
+        }</span>
+        <span class="cov8" title="1">return &amp;Service{log: log, cfg: cfg, client: client}</span>
+}
+
+func (s *Service) Fetch(ctx context.Context) ([]m.MMSData, error) <span class="cov8" title="1">{
+        decode := func(r io.Reader) ([]m.MMSData, error) </span><span class="cov8" title="1">{
+                return jsonx.DecodeArrayFromReader[m.MMSData](r, &amp;jsonx.Options[m.MMSData]{})
+        }</span>
+
+        <span class="cov8" title="1">return httpx.FetchArray[m.MMSData](
+                ctx,
+                s.log,
+                s.client,
+                s.cfg.PathMmsData,
+                decode,
+                "mmsdata.Fetch",
+        )</span>
+}
+
+/*
+import (
+        "context"
+        "fmt"
+        "io"
+        "net/http"
+
+        "log/slog"
+        "main/config"
+        "main/internal/jsonx"
+        "main/internal/validateStruct"
+        "main/sl"
+        "time"
+)
+
+// структура для MMSData
+type MMSData struct {
+        Country      string `json:"country" validate:"iso3166_1_alpha2"`
+        Provider     string `json:"provider" validate:"oneof=Topolo Rond Kildy"`
+        Bandwidth    string `json:"bandwidth" validate:"required,num0to100"`
+        ResponseTime string `json:"response_time" validate:"required,number"`
+}
+
+// В продакшене передавайте http.Client извне, чтобы реиспользовать пул соединений.
+type Service struct {
+        log    *slog.Logger
+        cfg    *config.CfgApp
+        client *http.Client
+}
+
+func (v MMSData) Validate() error {
+        return validateStruct.Struct(v)
+}
+
+func NewService(log *slog.Logger, cfg *config.CfgApp, client *http.Client) *Service {
+        if client == nil {
+                client = &amp;http.Client{Timeout: 5 * time.Second}
+        }
+        return &amp;Service{log: log, cfg: cfg, client: client}
+}
+
+func (s *Service) Fetch(ctx context.Context) ([]MMSData, error) {
+        const op = "mmsdata.Fetch"
+        log := s.log.With(
+                slog.String("op", op),
+                slog.String("url", s.cfg.PathMmsData),
+        )
+
+        req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.cfg.PathMmsData, nil)
+        if err != nil {
+                log.Error("build request", sl.Err(err))
+                return nil, fmt.Errorf("%s: build request: %w", op, err)
+        }
+
+        res, err := s.client.Do(req)
+        if err != nil {
+                log.Error("do http-request", sl.Err(err))
+                return nil, fmt.Errorf("%s: do request: %w", op, err)
+        }
+        defer res.Body.Close()
+
+        if res.StatusCode &lt; 200 || res.StatusCode &gt; 299 {
+                _, _ = io.Copy(io.Discard, res.Body) // дочитать тело
+                err = fmt.Errorf("%s: unexpected HTTP status: %s (%d)", op, res.Status, res.StatusCode)
+                log.Error("bad status", sl.Err(err), slog.Int("status_code", res.StatusCode))
+                return nil, err
+        }
+
+        // Вариант А: читаем всё в память
+        // body, err := io.ReadAll(res.Body)
+        // if err != nil {
+        //         log.Error("read body", sl.Err(err))
+        //         return nil, fmt.Errorf("%s: read body: %w", op, err)
+        // }
+        //data, err := jsonx.DecodeArray[SupportData](body, &amp;jsonx.Options[SupportData]{})
+
+        // Вариант Б: стриминговый (без ReadAll)
+        data, err := jsonx.DecodeArrayFromReader[MMSData](res.Body, &amp;jsonx.Options[MMSData]{})
+        if err != nil {
+                log.Error("Error by decode json in body from http-Get response", sl.Err(err))
+                return nil, fmt.Errorf("%s: failed by decode&amp;validate json: %w", op, err)
+        }
+        return data, nil
+
+}
+*/
+</pre>
+		
+		<pre class="file" id="file23" style="display: none">package mmsdata
+
+import (
+        "context"
+        "errors"
+        "log/slog"
+        "main/config"
+        countries "main/internal/alpha2"
+        m "main/internal/model"
+        "net/http"
+        "slices"
+        "strings"
+        "sync"
+        "time"
+
+        "golang.org/x/sync/errgroup"
+)
+
+// для примера сделан отдельный goFetch - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
+// контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
+func GoFetch(
+        g *errgroup.Group,
+        parentCtx context.Context,
+        logger *slog.Logger,
+        timeout time.Duration,
+        client *http.Client,
+        cfg *config.CfgApp,
+        rs *m.ResultSetT,
+        mu *sync.Mutex,
+) <span class="cov0" title="0">{
+
+        g.Go(func() error </span><span class="cov0" title="0">{
+                // таймаут на задачу
+                ctx := parentCtx
+                var cancel context.CancelFunc
+                if timeout &gt; 0 </span><span class="cov0" title="0">{
+                        ctx, cancel = context.WithTimeout(parentCtx, timeout)
+                        defer cancel()
+                }</span>
+
+                <span class="cov0" title="0">start := time.Now()
+
+                s := NewService(logger, cfg, client)
+
+                nonSortedData, err := s.Fetch(ctx)
+                if err != nil </span><span class="cov0" title="0">{
+                        // отличаем отмену от реальной ошибки
+                        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) </span><span class="cov0" title="0">{
+                                logger.Info("mms cancelled", slog.Duration("dur", time.Since(start)))
+                                return nil
+                        }</span>
+                        <span class="cov0" title="0">logger.Info("mms NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil</span> // не валим группу
+                }
+
+                // перед публикацией ещё раз убеждаемся, что не отменено
+                <span class="cov0" title="0">select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        logger.Info("mms cancelled before publish", slog.Duration("dur", time.Since(start)))
+                        return nil</span>
+                default:<span class="cov0" title="0"></span>
+                }
+
+                //все что ниже продолжит выполнение как по default
+                <span class="cov0" title="0">sortedData := BuildSortedMMS(nonSortedData) // [][]MMSData
+
+                // сохранить результат с защитой от гонок
+                mu.Lock()
+                rs.MMS = sortedData
+                mu.Unlock()
+
+                // посчитать реальное количество строк во всех под-срезах
+                total := 0
+                for _, part := range sortedData </span><span class="cov0" title="0">{
+                        total += len(part)
+                }</span>
+
+                <span class="cov0" title="0">logger.Info("mms fetched",
+                        slog.Int("count", total),
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug("mms data:", " ", sortedData)
+                return nil</span>
+        })
+}
+
+// BuildSortedSMS:
+// 1) подменяет Country: alpha-2 → полное название,
+// 2) готовит два набора:
+//   - по провайдеру A→Z,
+//   - по стране A→Z,
+//
+// 3) объединяет в [][]SMSData, где [0] — сортировка по провайдеру, [1] — по стране.
+//
+// ВАЖНО: валидацию вы уже прошли в Fetch (там Country — alpha-2).
+// После подмены на полные названия повторно Validate() вызывать не нужно.
+func BuildSortedMMS(in []m.MMSData) [][]m.MMSData <span class="cov8" title="1">{
+        // 1) нормализуем страны (делаем копию входного среза)
+        mapped := make([]m.MMSData, len(in))
+        copy(mapped, in)
+        for i := range mapped </span><span class="cov8" title="1">{
+                mapped[i].Country = countries.CountryName(mapped[i].Country)
+        }</span>
+
+        // 2) сортировка по провайдеру (A→Z)
+        <span class="cov8" title="1">byProvider := make([]m.MMSData, len(mapped))
+        copy(byProvider, mapped)
+
+        slices.SortStableFunc(byProvider, func(a, b m.MMSData) int </span><span class="cov8" title="1">{
+                return strings.Compare(a.Provider, b.Provider) //не учитывал strings.ToLower, может и стоит
+        }</span>)
+
+        // 3) сортировка по стране (A→Z)
+        <span class="cov8" title="1">byCountry := make([]m.MMSData, len(mapped))
+        copy(byCountry, mapped)
+
+        slices.SortStableFunc(byCountry, func(a, b m.MMSData) int </span><span class="cov8" title="1">{
+                return strings.Compare(a.Country, b.Country)
+        }</span>)
+
+        // 4) объединяем
+        <span class="cov8" title="1">return [][]m.MMSData{byProvider, byCountry}</span>
+}
+</pre>
+		
+		<pre class="file" id="file24" style="display: none">package sl
+
+import (
+        "log/slog"
+)
+
+//функция для логирования ошибок в slog от разных функций, сразу ключи прокидывает в slog
+
+func Err(err error) slog.Attr <span class="cov0" title="0">{
+        return slog.Attr{
+                Key:   "error",
+                Value: slog.StringValue(err.Error()),
+        }
+}</span>
+</pre>
+		
+		<pre class="file" id="file25" style="display: none">package smsdata
+
+import (
+        "context"
+        "log/slog"
+        "main/config"
+        "main/internal/fileutil"
+        m "main/internal/model"
+        "main/internal/textutil"
+        "main/sl"
+        "strings"
+)
+
+/*
+Считываем SMS.data file
+проверка строк на соответствие:
+-каждая строка 4 поля: 1: код страны alpha-2; 2:пропуск способность; 3:среднее время ответа ms; 4: название компании
+-строки могут быть повреждены:
+
+        -строки в которых менее 4х или более 4х полей - пропустить ( критерий 1)
+        -в результат только страны прошедшие проверку по alpha-2 коду ( критерий 2)
+        -в результат только провайдеры Topolo, Rond, Kildy ( критерий 3)
+        -пропускная  способность канала от 0% до 100% ( критерий 4)
+        -среднее время ответа в ms ( критерий 5)
+
+Итог переносим в SMSData struct
+*/
+//go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=readfile
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) ([]m.SMSData, error) <span class="cov8" title="1">{
+
+        path := cfg.FileSms
+
+        // Читаем целиком (маленький файл)
+        rf, err := fileutil.FileOpener(path)
+        if err != nil </span><span class="cov0" title="0">{
+                logger.Error("Error by open/read file "+path, sl.Err(err))
+                return nil, err
+        }</span>
+
+        /*Почему останавливаемся тут
+        Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+        Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+        */
+        <span class="cov8" title="1">if err := ctx.Err(); err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        //преобразовать байты в массив строк, разделитель новая строка, затем разделитель ;
+        <span class="cov8" title="1">lines := strings.Split(string(rf), "\n")
+
+        out := make([]m.SMSData, 0, len(lines)) //данные SMS будут срезе, len = , cap =        //так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
+
+        for _, line := range lines </span><span class="cov8" title="1">{
+                splitted, ok := textutil.SplitN(line, ';', cfg.QuantSMSDataCol) //перешли на более дешевый метод SplitN. было: SMSDataLine := strings.Split(line, ";")
+                if !ok </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">s := m.SMSData{Country: splitted[0], Bandwidth: splitted[1], ResponseTime: splitted[2], Provider: splitted[3]}
+
+                //if validate.ColumnsChecker(SMSDataLine, quantSMSDataCol) { //проверка на соответствие критериям 1
+
+                if err := s.Validate(); err == nil </span><span class="cov8" title="1">{ //проверка на соответствие критериям 2,3,4,5
+                        out = append(out, s)
+                }</span>
+
+        }
+
+        <span class="cov8" title="1">return out, nil</span>
+
+}
+</pre>
+		
+		<pre class="file" id="file26" style="display: none">package smsdata
+
+import (
+        "context"
+        "errors"
+        "log/slog"
+        "main/config"
+        countries "main/internal/alpha2"
+        m "main/internal/model"
+        "slices"
+        "strings"
+        "sync"
+        "time"
+
+        "golang.org/x/sync/errgroup"
+)
+
+// для примера сделан отдельный goFetch - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
+// контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
+func GoFetch(
+        g *errgroup.Group,
+        groupCtx context.Context,
+        logger *slog.Logger,
+        timeout time.Duration,
+        cfg *config.CfgApp,
+        rs *m.ResultSetT,
+        mu *sync.Mutex,
+) <span class="cov0" title="0">{
+        g.Go(func() error </span><span class="cov0" title="0">{
+                // таймаут на задачу
+                ctx := groupCtx
+                var cancel context.CancelFunc
+                if timeout &gt; 0 </span><span class="cov0" title="0">{
+                        ctx, cancel = context.WithTimeout(groupCtx, timeout)
+                        defer cancel()
+                }</span>
+
+                <span class="cov0" title="0">start := time.Now()
+
+                nonSortedData, err := Fetch(ctx, logger, cfg) // []sms.SMSData
+                if err != nil </span><span class="cov0" title="0">{
+                        // отличаем отмену от реальной ошибки
+                        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) </span><span class="cov0" title="0">{
+                                logger.Info("sms cancelled", slog.Duration("dur", time.Since(start)))
+                                return nil
+                        }</span>
+                        <span class="cov0" title="0">logger.Info("sms NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil</span> // не валим группу
+                }
+
+                // перед публикацией ещё раз убеждаемся, что не отменено
+                <span class="cov0" title="0">select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        logger.Info("sms cancelled before publish", slog.Duration("dur", time.Since(start)))
+                        return nil</span>
+                default:<span class="cov0" title="0"></span>
+                }
+                //все что ниже продолжит выполнение как по default
+                <span class="cov0" title="0">sortedData := BuildSortedSMS(nonSortedData) // [][]sms.SMSData
+
+                // сохранить результат с защитой от гонок
+                mu.Lock()
+                rs.SMS = sortedData
+                mu.Unlock()
+
+                // посчитать реальное количество строк во всех под-срезах
+                total := 0
+                for _, part := range sortedData </span><span class="cov0" title="0">{
+                        total += len(part)
+                }</span>
+
+                <span class="cov0" title="0">logger.Info("sms fetched",
+                        slog.Int("count", total),
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug("sms data:", " ", sortedData)
+                return nil</span>
+        })
+}
+
+// BuildSortedSMS:
+// 1) подменяет Country: alpha-2 → полное название,
+// 2) готовит два набора:
+//   - по провайдеру A→Z,
+//   - по стране A→Z,
+//
+// 3) объединяет в [][]SMSData, где [0] — сортировка по провайдеру, [1] — по стране.
+//
+// ВАЖНО: валидацию вы уже прошли в Fetch (там Country — alpha-2).
+// После подмены на полные названия повторно Validate() вызывать не нужно.
+func BuildSortedSMS(in []m.SMSData) [][]m.SMSData <span class="cov8" title="1">{
+        // 1) нормализуем страны (делаем копию входного среза)
+        mapped := make([]m.SMSData, len(in))
+        copy(mapped, in)
+        for i := range mapped </span><span class="cov8" title="1">{
+                mapped[i].Country = countries.CountryName(mapped[i].Country)
+        }</span>
+
+        // 2) сортировка по провайдеру (A→Z)
+        <span class="cov8" title="1">byProvider := make([]m.SMSData, len(mapped))
+        copy(byProvider, mapped)
+
+        slices.SortStableFunc(byProvider, func(a, b m.SMSData) int </span><span class="cov8" title="1">{
+                return strings.Compare(a.Provider, b.Provider) //не учитывал strings.ToLower, может и стоит
+        }</span>)
+
+        // 3) сортировка по стране (A→Z)
+        <span class="cov8" title="1">byCountry := make([]m.SMSData, len(mapped))
+        copy(byCountry, mapped)
+
+        slices.SortStableFunc(byCountry, func(a, b m.SMSData) int </span><span class="cov8" title="1">{
+                return strings.Compare(a.Country, b.Country)
+        }</span>)
+
+        // 4) объединяем
+        <span class="cov8" title="1">return [][]m.SMSData{byProvider, byCountry}</span>
+}
+</pre>
+		
+		<pre class="file" id="file27" style="display: none">package support
+
+import (
+        "context"
+        "io"
+        "net/http"
+        "time"
+
+        "log/slog"
+        "main/config"
+        "main/internal/httpx"
+        "main/internal/jsonx"
+        m "main/internal/model"
+)
+
+// В продакшене передавайте http.Client извне, чтобы реиспользовать пул соединений.
+type Service struct {
+        log    *slog.Logger
+        cfg    *config.CfgApp
+        client *http.Client
+}
+
+func NewService(log *slog.Logger, cfg *config.CfgApp, client *http.Client) *Service <span class="cov8" title="1">{
+        if client == nil </span><span class="cov0" title="0">{
+                client = &amp;http.Client{Timeout: 5 * time.Second}
+        }</span>
+        <span class="cov8" title="1">return &amp;Service{log: log, cfg: cfg, client: client}</span>
+}
+
+func (s *Service) Fetch(ctx context.Context) ([]m.SupportData, error) <span class="cov8" title="1">{
+        decode := func(r io.Reader) ([]m.SupportData, error) </span><span class="cov8" title="1">{
+                return jsonx.DecodeArrayFromReader[m.SupportData](r, &amp;jsonx.Options[m.SupportData]{})
+        }</span>
+
+        <span class="cov8" title="1">return httpx.FetchArray[m.SupportData](
+                ctx,
+                s.log,
+                s.client,
+                s.cfg.PathSupportData,
+                decode,
+                "supportdata.Fetch",
+        )</span>
+}
+</pre>
+		
+		<pre class="file" id="file28" style="display: none">package support
+
+import (
+        "context"
+        "errors"
+        "log/slog"
+        "main/config"
+        m "main/internal/model"
+        "math"
+        "net/http"
+        "sync"
+        "time"
+
+        "golang.org/x/sync/errgroup"
+)
+
+type supportFetcher interface {
+        Fetch(ctx context.Context) ([]m.SupportData, error)
+}
+
+var newService = func(logger *slog.Logger, cfg *config.CfgApp, client *http.Client) supportFetcher <span class="cov0" title="0">{
+        return NewService(logger, cfg, client)
+}</span>
+
+// для примера сделан отдельный goFetch - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
+// контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
+func GoFetch(
+        g *errgroup.Group,
+        parentCtx context.Context,
+        logger *slog.Logger,
+        timeout time.Duration,
+        client *http.Client,
+        cfg *config.CfgApp,
+        rs *m.ResultSetT,
+        mu *sync.Mutex,
+) <span class="cov8" title="1">{
+
+        g.Go(func() error </span><span class="cov8" title="1">{
+                // таймаут на задачу
+                ctx := parentCtx
+                var cancel context.CancelFunc
+                if timeout &gt; 0 </span><span class="cov8" title="1">{
+                        ctx, cancel = context.WithTimeout(parentCtx, timeout)
+                        defer cancel()
+                }</span>
+
+                <span class="cov8" title="1">start := time.Now()
+
+                s := newService(logger, cfg, client) // будем мокать, поэтому через интерфейс
+
+                nonSortedData, err := s.Fetch(ctx)
+                if err != nil </span><span class="cov8" title="1">{
+                        // отличаем отмену от реальной ошибки
+                        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) </span><span class="cov8" title="1">{
+                                logger.Info("support cancelled", slog.Duration("dur", time.Since(start)))
+                                return nil
+                        }</span>
+                        <span class="cov0" title="0">logger.Info("support NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil</span> // не валим группу errgroup, если тут будет err, то завершаться все горутины errgroup
+                }
+
+                // перед публикацией ещё раз убеждаемся, что не отменено
+                <span class="cov8" title="1">select </span>{
+                case &lt;-ctx.Done():<span class="cov8" title="1">
+                        logger.Info("support cancelled before publish", slog.Duration("dur", time.Since(start)))
+                        return nil</span>
+                default:<span class="cov8" title="1"></span>
+                }
+
+                //все что ниже продолжит выполнение как по default
+                <span class="cov8" title="1">sortedData := BuildSortedSupport(nonSortedData)
+
+                // сохранить результат с защитой от гонок
+                mu.Lock()
+                rs.Support = sortedData
+                mu.Unlock()
+
+                logger.Info("support fetched",
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug("support data:", "loadLevel=", sortedData[0], " waitMinutes=", sortedData[1])
+                return nil</span>
+        })
+}
+
+// BuildSortedSupport считает интегральную нагрузку саппорта и потенциальное время ожидания.
+// Возвращает []int{loadLevel, waitMinutes}:
+//
+//        loadLevel: 1 (&lt;9 тикетов), 2 (9..16), 3 (&gt;16)
+//        waitMinutes: потенциальное время ожидания ответа на новый тикет (минуты)
+func BuildSortedSupport(data []m.SupportData) []int <span class="cov8" title="1">{
+        const teamThroughputPerHour = 18.0
+        const minutesPerTicket = 60.0 / teamThroughputPerHour // ~3.33 мин/тикет (вся команда)
+
+        // суммируем только валидные значения
+        totalOpen := 0
+        for _, d := range data </span><span class="cov8" title="1">{
+                if d.ActiveTickets &gt; 0 </span><span class="cov8" title="1">{
+                        totalOpen += d.ActiveTickets
+                }</span>
+        }
+
+        // потенциальное время ожидания
+        <span class="cov8" title="1">waitMinutes := int(math.Ceil(float64(totalOpen) * minutesPerTicket))
+
+        // уровни нагрузки по количеству открытых тикетов
+        loadLevel := 0
+        switch </span>{
+        case totalOpen &lt; 9:<span class="cov8" title="1">
+                loadLevel = 1</span>
+        case totalOpen &lt;= 16:<span class="cov8" title="1">
+                loadLevel = 2</span>
+        default:<span class="cov8" title="1">
+                loadLevel = 3</span>
+        }
+
+        <span class="cov8" title="1">return []int{loadLevel, waitMinutes}</span>
+}
+</pre>
+		
+		<pre class="file" id="file29" style="display: none">package voicedata
+
+import (
+        "context"
+        "log/slog"
+        "main/config"
+        "main/internal/fileutil"
+        m "main/internal/model"
+        "main/internal/textutil"
+        "main/sl"
+        "strconv"
+        "strings"
+)
+
+/*
+Считываем Voice.data file
+проверка строк на соответствие:
+        4. Каждая строка должна содержать 8 полей (alpha-2 код страны, текущая
+        нагрузка в процентах, среднее время ответа, провайдер, стабильность
+        соединения, TTFB, чистота связи, медиана длительности звонка). Строки
+        содержащие отличное количество полей не должны попадать в результат
+        работы функции.
+        5. Некоторые строки могут быть повреждены, их нужно пропускать и не
+        записывать в результат выполнения функции
+        6. В результат допускаются только страны прошедшие проверку на
+        существование по alpha-2 коду.
+        7. В результат допускаются только корректные провайдеры. Допустимые
+        провайдеры: TransparentCalls, E-Voice, JustPhone. Все некорректные
+        провайдеры нужно пропускать и не добавлять в результат работы
+        функции
+        8. Строки в которых меньше 8-х полей данных не допускаются
+        9. Все целочисленные данные должны быть приведены к типу int
+        10.Все числа с плавающей точкой должны быть приведены к типу float32
+*/
+//go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=readfile
+func Fetch(ctx context.Context, logger *slog.Logger, cfg *config.CfgApp) ([]m.VoiceCallData, error) <span class="cov8" title="1">{
+
+        // файл c voice
+        path := cfg.FileVoiceCall
+        rf, err := fileutil.FileOpener(path)
+
+        if err != nil </span><span class="cov8" title="1">{
+                logger.Error("Error by opening file "+path, sl.Err(err))
+                return nil, err
+        }</span>
+
+        /*Почему останавливаемся тут
+        Ранний выход без «публикации». Даже если парсинг и валидация быстрые, по отмене лучше вернуть ошибку и не делать больше ничего.
+        Тогда вызывающий код (горутина) не будет логировать “fetched” и не будет публиковать результат.
+        */
+        <span class="cov8" title="1">if err := ctx.Err(); err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        //преобразовать байты в массив строк, разделитель новая строка, затем разделитель ;
+        <span class="cov8" title="1">VoiceDataLines := strings.Split(string(rf), "\n")
+
+        VoiceDatas := make([]m.VoiceCallData, 0, len(VoiceDataLines)) //данные будут срезе, len = , cap =        //так чтобы не было пустых элементов в срезе, cap сразу чтоб не переназначалась каждый раз память
+
+        for _, line := range VoiceDataLines </span><span class="cov8" title="1">{
+                splitted, ok := textutil.SplitN(line, ';', cfg.QuantVoiceDataCol) //перешли на более дешевый метод SplitN.
+                if !ok </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">ConnectionStability, err := strconv.ParseFloat(splitted[4], 32)
+                //проверка на соответствие критерия 5 - поле не цифра
+                if err != nil </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">TTFB, err := strconv.Atoi(splitted[5])
+                //проверка на соответствие критерия 5 - поле не цифра
+                if err != nil </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">VoicePurity, err := strconv.Atoi(splitted[6])
+                //проверка на соответствие критерия 5 - поле не цифра
+                if err != nil </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">MedianOfCallsTime, err := strconv.Atoi(splitted[7])
+                //проверка на соответствие критерия 5 - поле не цифра
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                //заполняем структуру провайдера
+                <span class="cov8" title="1">s := m.VoiceCallData{
+                        Country:             splitted[0],
+                        Bandwidth:           splitted[1],
+                        ResponseTime:        splitted[2],
+                        Provider:            splitted[3],
+                        ConnectionStability: float32(ConnectionStability),
+                        TTFB:                TTFB,
+                        VoicePurity:         VoicePurity,
+                        MedianOfCallsTime:   MedianOfCallsTime,
+                }
+
+                if err := s.Validate(); err == nil </span><span class="cov8" title="1">{ //проверка на соответствие критериям 4, 6, 7
+                        VoiceDatas = append(VoiceDatas, s)
+                }</span>
+
+        }
+
+        <span class="cov8" title="1">return VoiceDatas, nil</span>
+
+}
+</pre>
+		
+		<pre class="file" id="file30" style="display: none">package voicedata
+
+import (
+        "context"
+        "errors"
+        "log/slog"
+        "main/config"
+        m "main/internal/model"
+        "sync"
+        "time"
+
+        "golang.org/x/sync/errgroup"
+)
+
+// для примера сделан отдельный goFetch - вызов такого будет занимать в RUN меньше места, хотя да он схож шаблону goFetchSlice
+// контекст в GoFetch нужен не для mu.Unlock(), а для ранней отмены/таймаута самой работы, чтобы g.Wait() не завис навсегда, если GoFetchSMS подвис
+func GoFetch(
+        g *errgroup.Group,
+        parentCtx context.Context,
+        logger *slog.Logger,
+        timeout time.Duration,
+        cfg *config.CfgApp,
+        rs *m.ResultSetT,
+        mu *sync.Mutex,
+) <span class="cov8" title="1">{
+        g.Go(func() error </span><span class="cov8" title="1">{
+                // таймаут на задачу
+                ctx := parentCtx
+                var cancel context.CancelFunc
+                if timeout &gt; 0 </span><span class="cov8" title="1">{
+                        ctx, cancel = context.WithTimeout(parentCtx, timeout)
+                        defer cancel()
+                }</span>
+
+                <span class="cov8" title="1">start := time.Now()
+
+                data, err := Fetch(ctx, logger, cfg) // []VoiceCallData
+                if err != nil </span><span class="cov8" title="1">{
+                        // отличаем отмену от реальной ошибки
+                        if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) </span><span class="cov8" title="1">{
+                                logger.Info("voice cancelled", slog.Duration("dur", time.Since(start)))
+                                return nil
+                        }</span>
+                        <span class="cov8" title="1">logger.Info("voice NOT fetched", slog.Any("err", err), slog.Duration("dur", time.Since(start)))
+                        return nil</span> // не валим группу
+                }
+
+                // перед публикацией ещё раз убеждаемся, что не отменено
+                <span class="cov8" title="1">select </span>{
+                case &lt;-ctx.Done():<span class="cov0" title="0">
+                        logger.Info("voice cancelled before publish", slog.Duration("dur", time.Since(start)))
+                        return nil</span>
+                default:<span class="cov8" title="1"></span>
+                }
+
+                // сохранить результат с защитой от гонок
+                <span class="cov8" title="1">mu.Lock()
+                rs.VoiceCall = data
+                mu.Unlock()
+
+                logger.Info("voice fetched",
+                        slog.Int("count", len(data)),
+                        slog.Duration("dur", time.Since(start)),
+                )
+                logger.Debug("voice data:", " ", data)
+                return nil</span>
+        })
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

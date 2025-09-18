@@ -1,4 +1,44 @@
+
+# Узнать, что именно выполнит make, без запуска: make -n cover
+# Подробный трейс: make --trace cover
+# чтобы работал атрибут -race в Windows нужен MinGW-w64 x86_64
+# bash скрипт
+# export PATH="/c/mingw64/bin:$PATH"
+# export CGO_ENABLED=1
+# export CC=x86_64-w64-mingw32-gcc
+# go env GOOS GOARCH CGO_ENABLED CC
+# go test -short -count=1 -race -coverprofile=coverage.out ./...
+#
+
+# Объявляет перечисленные цели «фантомными» (phony). Такие цели всегда выполняются, даже если в каталоге вдруг появятся файлы/папки с такими именами. 
+# Это предотвращает конфликты вида: файл test мешает запустить цель test.
+.PHONY: test test-short test-race cover clean
+
+test:
+	go test ./...
+
+test-short:
+	go test -short ./...
+
+test-race:
+	go test -race ./...
+
 cover:
-	go test -short -count=1 -race -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out 
-	rm coverage.out
+	# таргет для запуска тестов
+		# Флаг -count=1 говорит не использовать кэш, а реально выполнить все тесты заново
+		# -race Включает детектор гонок данных. Go запускает тесты с дополнительной проверкой на то, что разные горутины небезопасно обращаются к памяти. Это замедляет выполнение, но позволяет найти race conditions.
+		# -covermode=atomic - Управляет режимом подсчёта покрытия кода тестами - считает, сколько раз была выполнена строка, но с атомарными операциями (безопасно для параллельных тестов)
+		# -coverprofile=coverage.out - записать статистику покрытия в файл coverage.out
+	go test -count=10 -shuffle=on -race -covermode=atomic -coverprofile=coverage.out ./...  
+	# go test -short -count=1 -race -coverprofile=coverage.out ./...
+	
+	# HTML-отчёт
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report: coverage.html"
+
+clean:
+	rm -f coverage.out coverage.html
+
+
+
+	

@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"log/slog"
-	"time"
 
 	//менеджер горутин удобен, когда нужно запустить несколько задач параллельно, дождаться их завершения и аккуратно обойтись с ошибками и отменой по контексту.
 	"main/config"
@@ -76,21 +75,24 @@ func main() {
 func run(parentCtx context.Context, logger *slog.Logger, cfg *config.CfgApp) error {
 
 	s.HttpServer(parentCtx, logger, cfg)
+	<-parentCtx.Done()
+	logger.Debug("state_Collector.run(): ctx cancelled — graceful exit")
+	return nil
 
 	//heartbeat + graceful shutdown
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+	// ticker := time.NewTicker(30 * time.Second) //тикер не будет работать из-за удержания http handler-a
+	// defer ticker.Stop()
 
 	// Эмуляция длительной работы с периодической проверкой контекста.
-	for {
-		select {
-		case <-parentCtx.Done():
-			logger.Debug("state_Collector.run(): ctx cancelled — graceful exit")
-			return nil
-		case t := <-ticker.C:
-			logger.Debug("state_Collector.heartbeat", slog.Time("ts", t))
-		}
-	}
+	//for {
+	//	select {
+	//	case <-parentCtx.Done():
+	//		logger.Debug("state_Collector.run(): ctx cancelled — graceful exit")
+	//		return nil
+	// case t := <-ticker.C:
+	// 	logger.Debug("state_Collector.heartbeat", slog.Time("ts", t))
+	//	}
+	//}
 
 }
 
